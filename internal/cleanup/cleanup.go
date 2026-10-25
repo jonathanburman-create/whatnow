@@ -1,4 +1,4 @@
-// Package cleanup turns a freshly captured card into tidy tasks, events, and blockers. It makes
+// Package cleanup turns a freshly captured card into tidy tasks, events, ideas, and blockers. It makes
 // one structured call to the light model and applies the result as one undoable agent batch.
 package cleanup
 
@@ -177,8 +177,8 @@ func (r *Runner) apply(ctx context.Context, task domain.Task, res result) (int64
 // write applies the reply. A task whose ticket key an open task already has joins that task
 // instead of being made again, and the note is deleted when it's the one that joined.
 func (r *Runner) write(ctx context.Context, batch int64, task domain.Task, res result) error {
-	if !res.Original.Keep && len(res.Events) == 0 {
-		return errors.New("reply would delete the note without turning it into events")
+	if !res.Original.Keep && len(res.Events) == 0 && len(res.Ideas) == 0 {
+		return errors.New("reply would delete the note without turning it into events or ideas")
 	}
 	tickets, err := r.openTickets(ctx, task.ID)
 	if err != nil {
@@ -229,6 +229,13 @@ func (r *Runner) write(ctx context.Context, batch int64, task domain.Task, res r
 		}
 		f.RawText = task.RawText
 		if _, err := r.svc.CreateEvent(ctx, batch, f); err != nil {
+			return err
+		}
+	}
+	for _, i := range res.Ideas {
+		f := i.fields()
+		f.RawText = task.RawText
+		if _, err := r.svc.CreateIdea(ctx, batch, f); err != nil {
 			return err
 		}
 	}

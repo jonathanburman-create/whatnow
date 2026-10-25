@@ -419,6 +419,72 @@ func TestRefusesToDeleteANoteThatHasNoEvents(t *testing.T) {
 	}
 }
 
+func TestIdeasGoToThePileNotTheTaskList(t *testing.T) {
+	f := newFixture(t, reply(t, map[string]any{
+		"original":  task(map[string]any{"keep": true, "title": "Pay the phone bill", "area": "home"}),
+		"new_tasks": []any{},
+		"events":    []any{},
+		"ideas": []any{
+			map[string]any{"title": "Essay angle: Rawls vs Nozick on luck", "notes": "", "area": "huji"},
+			map[string]any{"title": "Look up how Matter bridges work", "notes": "someday", "area": ""},
+		},
+		"blockers": []any{},
+	}))
+	note := "pay the phone bill. essay angle rawls vs nozick on luck. look up matter bridges someday"
+	captured := f.capture(t, note)
+	ctx := context.Background()
+
+	batch, err := f.runner.Clean(ctx, captured)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := titles(t, f.svc); !slices.Equal(got, []string{"Pay the phone bill"}) {
+		t.Errorf("tasks = %v", got)
+	}
+	ideas, _ := f.svc.ListIdeas(ctx)
+	if len(ideas) != 2 {
+		t.Fatalf("got %d ideas, want 2", len(ideas))
+	}
+	// Newest first, so the second idea comes back first.
+	matter, essay := ideas[0], ideas[1]
+	if essay.Area == nil || *essay.Area != domain.AreaHUJI || essay.RawText != note || essay.CreatedBy != domain.ActorAgent {
+		t.Errorf("essay idea = %+v", essay)
+	}
+	if matter.Area != nil || matter.Notes != "someday" {
+		t.Errorf("matter idea = %+v", matter)
+	}
+
+	if err := f.svc.Undo(ctx, batch); err != nil {
+		t.Fatal(err)
+	}
+	if ideas, _ := f.svc.ListIdeas(ctx); len(ideas) != 0 {
+		t.Errorf("after undo, ideas = %+v", ideas)
+	}
+}
+
+func TestANoteOfOnlyIdeasLeavesNoTask(t *testing.T) {
+	f := newFixture(t, reply(t, map[string]any{
+		"original":  task(map[string]any{"keep": false}),
+		"new_tasks": []any{},
+		"events":    []any{},
+		"ideas":     []any{map[string]any{"title": "A podcast about exchange semesters", "notes": "", "area": "projects"}},
+		"blockers":  []any{},
+	}))
+	captured := f.capture(t, "podcast idea about exchange semesters")
+	ctx := context.Background()
+
+	if _, err := f.runner.Clean(ctx, captured); err != nil {
+		t.Fatal(err)
+	}
+	if tasks, _ := f.svc.ListTasks(ctx); len(tasks) != 0 {
+		t.Errorf("tasks = %+v, want none", tasks)
+	}
+	if ideas, _ := f.svc.ListIdeas(ctx); len(ideas) != 1 {
+		t.Errorf("ideas = %+v, want one", ideas)
+	}
+}
+
 // ticketTask makes a task with one ref, as a Jira pick or an earlier note would have.
 func (f *fixture) ticketTask(t *testing.T, title, ref string, status domain.Status) domain.Task {
 	t.Helper()

@@ -21,7 +21,7 @@ func TestEveryToolIsOffered(t *testing.T) {
 		names = append(names, tl.Name)
 	}
 	want := []string{"list_tasks", "create_task", "update_task", "complete_task", "drop_task", "push_task", "add_blocker",
-		"remove_blocker", "create_event", "update_event", "delete_event", "replan", "what_now", "set_pace", "undo_last"}
+		"remove_blocker", "create_idea", "list_ideas", "idea_to_task", "delete_idea", "create_event", "update_event", "delete_event", "replan", "what_now", "set_pace", "undo_last"}
 	if diff := cmp.Diff(want, names); diff != "" {
 		t.Errorf("tools (-want +got):\n%s", diff)
 	}
@@ -58,6 +58,57 @@ func TestUpdateTaskChangesOnlyTheNamedFields(t *testing.T) {
 		call("c3", "update_task", map[string]any{"task_id": task.ID, "changes": []map[string]string{{"field": "size", "value": "XL"}}}))
 	if !got[0].IsError || !strings.Contains(got[0].Content, `no field "status"`) || !got[1].IsError {
 		t.Errorf("results = %+v", got)
+	}
+}
+
+func TestAreaCanBeSetAndChanged(t *testing.T) {
+	f := newFixture(t)
+	got := results(t, f, call("c1", "create_task", map[string]any{"title": "Read chapter 4", "notes": "", "size": "",
+		"energy": "", "area": "uoft", "feeling": "", "due_on": "", "not_before": ""}))
+	if got[0].IsError {
+		t.Fatal(got[0].Content)
+	}
+	tasks, _ := f.svc.ListTasks(context.Background())
+	if len(tasks) != 1 || tasks[0].Area == nil || *tasks[0].Area != domain.AreaUofT {
+		t.Fatalf("tasks = %+v", tasks)
+	}
+
+	got = results(t, f, call("c2", "update_task", map[string]any{"task_id": tasks[0].ID,
+		"changes": []map[string]string{{"field": "area", "value": "huji"}}}))
+	if got[0].IsError {
+		t.Fatal(got[0].Content)
+	}
+	after, _ := f.svc.GetTask(context.Background(), tasks[0].ID)
+	if after.Area == nil || *after.Area != domain.AreaHUJI {
+		t.Errorf("area after update = %v, want huji", after.Area)
+	}
+}
+
+func TestIdeasGoOnThePileAndCanBecomeTasks(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	got := results(t, f, call("c1", "create_idea", map[string]any{"title": "Essay: Rawls vs Nozick on luck", "notes": "",
+		"area": "huji"}))
+	if got[0].IsError {
+		t.Fatal(got[0].Content)
+	}
+	ideas, _ := f.svc.ListIdeas(ctx)
+	if len(ideas) != 1 || ideas[0].Area == nil || *ideas[0].Area != domain.AreaHUJI {
+		t.Fatalf("ideas = %+v", ideas)
+	}
+	if tasks, _ := f.svc.ListTasks(ctx); len(tasks) != 0 {
+		t.Errorf("an idea made a task: %+v", tasks)
+	}
+
+	got = results(t, f, call("c2", "list_ideas", map[string]any{}), call("c3", "idea_to_task", map[string]any{"idea_id": ideas[0].ID}))
+	if got[0].IsError || !strings.Contains(got[0].Content, "Rawls") || got[1].IsError {
+		t.Fatalf("results = %+v", got)
+	}
+	if ideas, _ := f.svc.ListIdeas(ctx); len(ideas) != 0 {
+		t.Errorf("idea still on the pile: %+v", ideas)
+	}
+	if tasks, _ := f.svc.ListTasks(ctx); len(tasks) != 1 || tasks[0].Title != "Essay: Rawls vs Nozick on luck" {
+		t.Errorf("tasks = %+v", tasks)
 	}
 }
 

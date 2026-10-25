@@ -11,7 +11,7 @@ import (
 // its details, and blockers come after the tasks they refer to.
 var schema = js.Object(
 	js.Prop("original", js.Object(append([]js.Field{
-		js.Prop("keep", map[string]any{"type": "boolean", "description": "False only when the note holds nothing but events."}),
+		js.Prop("keep", map[string]any{"type": "boolean", "description": "False only when the note holds nothing but events and ideas."}),
 	}, taskFields()...)...)),
 	js.Prop("new_tasks", js.Array(js.Object(append([]js.Field{
 		js.Prop("ref", js.String(`A short name other entries use to refer to this task, like "n1".`)),
@@ -20,6 +20,11 @@ var schema = js.Object(
 		js.Prop("title", js.String("What the event is.")),
 		js.Prop("starts_at", js.String("Local start time as YYYY-MM-DDTHH:MM.")),
 		js.Prop("ends_at", js.String("Local end time as YYYY-MM-DDTHH:MM, or empty.")),
+	))),
+	js.Prop("ideas", js.Array(js.Object(
+		js.Prop("title", js.String("The idea, short, in the user's words where you can.")),
+		js.Prop("notes", js.String("Useful detail that doesn't fit the title, or empty.")),
+		js.Prop("area", js.Enum(areaDescription(), append([]string{""}, domain.AreaIDs()...)...)),
 	))),
 	js.Prop("blockers", js.Array(js.Object(
 		js.Prop("task", js.String(`The task that waits: "original", a new task's ref, or "#<id>".`)),

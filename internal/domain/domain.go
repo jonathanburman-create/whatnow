@@ -125,6 +125,21 @@ type Task struct {
 	DeletedAt *time.Time `json:"deleted_at"`
 }
 
+// Idea is a thought worth keeping that isn't something to do: an essay angle, a thing to look up
+// someday, a project idea. Ideas never enter a plan. They wait in the idea pile until the user
+// browses it, and one can be turned into a task.
+type Idea struct {
+	ID        int64      `json:"id"`
+	Title     string     `json:"title"`
+	Notes     string     `json:"notes"`
+	Area      *Area      `json:"area"`
+	RawText   string     `json:"raw_text"`
+	CreatedBy Actor      `json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `json:"deleted_at"`
+}
+
 // Blocker says TaskID cannot start until BlockedByID is finished.
 type Blocker struct {
 	TaskID      int64 `json:"task_id"`

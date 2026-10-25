@@ -15,6 +15,7 @@ type result struct {
 	Original original  `json:"original"`
 	NewTasks []newTask `json:"new_tasks"`
 	Events   []event   `json:"events"`
+	Ideas    []idea    `json:"ideas"`
 	Blockers []blocker `json:"blockers"`
 }
 
@@ -44,6 +45,16 @@ type event struct {
 	Title    string `json:"title"`
 	StartsAt string `json:"starts_at"`
 	EndsAt   string `json:"ends_at"`
+}
+
+type idea struct {
+	Title string `json:"title"`
+	Notes string `json:"notes"`
+	Area  string `json:"area"`
+}
+
+func (i idea) fields() service.IdeaFields {
+	return service.IdeaFields{Title: i.Title, Notes: i.Notes, Area: optional[domain.Area](i.Area)}
 }
 
 type blocker struct {

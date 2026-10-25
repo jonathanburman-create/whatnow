@@ -1,4 +1,4 @@
-// Package service is the only write path for tasks, blockers, events, and days. Every write belongs to a
+// Package service is the only write path for tasks, blockers, events, ideas, and days. Every write belongs to a
 // batch and records an activity row with before and after snapshots, which is what undo replays.
 package service
 
@@ -24,6 +24,7 @@ const (
 	entityBlocker = "blocker"
 	entityEvent   = "event"
 	entityDay     = "day"
+	entityIdea    = "idea"
 
 	actionCreate = "create"
 	actionUpdate = "update"

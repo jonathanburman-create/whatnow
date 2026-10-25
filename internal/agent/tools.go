@@ -39,6 +39,7 @@ const localTime = "2006-01-02T15:04"
 var (
 	taskID   = js.Integer("The task's number, from #<id>.")
 	eventID  = js.Integer("The event's number, from [event id].")
+	ideaID   = js.Integer("The idea's number, from list_ideas.")
 	dateProp = func(what string) map[string]any { return js.String(what + " as YYYY-MM-DD, or empty for none.") }
 
 	// taskProps are create_task's fields. An empty string leaves a field unset.
@@ -75,6 +76,13 @@ var tools = []tool{
 		js.Object(js.Prop("task_id", js.Integer("The task that waits.")), js.Prop("blocked_by_id", js.Integer("The task it waits on."))), addBlocker},
 	{"remove_blocker", "Remove a blocker.",
 		js.Object(js.Prop("task_id", js.Integer("The task that waits.")), js.Prop("blocked_by_id", js.Integer("The task it waits on."))), removeBlocker},
+	{"create_idea", "Put a thought that isn't a task in the idea pile.",
+		js.Object(js.Prop("title", js.String("The idea, short, in their words where you can.")),
+			js.Prop("notes", js.String("Details worth keeping, or empty.")),
+			js.Prop("area", js.Enum("The part of life it belongs to (see Areas in the context), or empty if it fits none.", append(domain.AreaIDs(), "")...))), createIdea},
+	{"list_ideas", "List the ideas in the idea pile, newest first. Only when they ask about their ideas.", js.Object(), listIdeas},
+	{"idea_to_task", "Turn an idea into a task and take it off the pile.", js.Object(js.Prop("idea_id", ideaID)), ideaToTask},
+	{"delete_idea", "Remove an idea from the pile.", js.Object(js.Prop("idea_id", ideaID)), deleteIdea},
 	{"create_event", "Add something at a fixed time.",
 		js.Object(js.Prop("title", js.String("What it is.")),
 			js.Prop("starts_at", js.String("Local time, as YYYY-MM-DDTHH:MM.")),
@@ -539,4 +547,89 @@ func undoLast(ctx context.Context, t *turn, _ json.RawMessage) (string, any, err
 	return "Undid the last change", struct {
 		Undone []domain.Activity `json:"undone"`
 	}{acts}, nil
+}
+
+// ideaBrief is an idea as the model reads it in tool results.
+type ideaBrief struct {
+	ID    int64        `json:"id"`
+	Title string       `json:"title"`
+	Notes string       `json:"notes,omitempty"`
+	Area  *domain.Area `json:"area,omitempty"`
+}
+
+func ideaBriefOf(i domain.Idea) ideaBrief {
+	return ideaBrief{ID: i.ID, Title: i.Title, Notes: i.Notes, Area: i.Area}
+}
+
+func createIdea(ctx context.Context, t *turn, input json.RawMessage) (string, any, error) {
+	in, err := args[struct {
+		Title string `json:"title"`
+		Notes string `json:"notes"`
+		Area  string `json:"area"`
+	}](input)
+	if err != nil {
+		return "", nil, err
+	}
+	batch, err := t.batch(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	idea, err := t.agent.svc.CreateIdea(ctx, batch,
+		service.IdeaFields{Title: in.Title, Notes: in.Notes, Area: optional[domain.Area](in.Area)})
+	if err != nil {
+		return "", nil, err
+	}
+	return fmt.Sprintf("Saved idea %q", idea.Title), ideaBriefOf(idea), nil
+}
+
+func listIdeas(ctx context.Context, t *turn, _ json.RawMessage) (string, any, error) {
+	ideas, err := t.agent.svc.ListIdeas(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	out := make([]ideaBrief, len(ideas))
+	for i, idea := range ideas {
+		out[i] = ideaBriefOf(idea)
+	}
+	return "Looked at the idea pile", out, nil
+}
+
+func ideaToTask(ctx context.Context, t *turn, input json.RawMessage) (string, any, error) {
+	in, err := args[struct {
+		IdeaID int64 `json:"idea_id"`
+	}](input)
+	if err != nil {
+		return "", nil, err
+	}
+	batch, err := t.batch(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	task, err := t.agent.svc.IdeaToTask(ctx, batch, in.IdeaID)
+	if err != nil {
+		return "", nil, err
+	}
+	return "Made a task: " + name(task), briefOf(task), nil
+}
+
+func deleteIdea(ctx context.Context, t *turn, input json.RawMessage) (string, any, error) {
+	in, err := args[struct {
+		IdeaID int64 `json:"idea_id"`
+	}](input)
+	if err != nil {
+		return "", nil, err
+	}
+	svc := t.agent.svc
+	idea, err := svc.GetIdea(ctx, in.IdeaID)
+	if err != nil {
+		return "", nil, err
+	}
+	batch, err := t.batch(ctx)
+	if err != nil {
+		return "", nil, err
+	}
+	if err := svc.DeleteIdea(ctx, batch, in.IdeaID); err != nil {
+		return "", nil, err
+	}
+	return fmt.Sprintf("Removed idea %q", idea.Title), map[string]bool{"deleted": true}, nil
 }

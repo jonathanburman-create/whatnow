@@ -84,6 +84,16 @@ func revert(ctx context.Context, tx *sql.Tx, a domain.Activity, now time.Time) e
 			}
 		}
 		return writeEvent(ctx, tx, e)
+	case entityIdea:
+		if a.Before == nil {
+			_, err := tx.ExecContext(ctx, `UPDATE ideas SET deleted_at = ? WHERE id = ?`, formatTime(now), a.EntityID)
+			return err
+		}
+		var i domain.Idea
+		if err := json.Unmarshal(a.Before, &i); err != nil {
+			return err
+		}
+		return writeIdea(ctx, tx, i)
 	case entityDay:
 		var d domain.Day
 		if err := json.Unmarshal(a.Before, &d); err != nil {
