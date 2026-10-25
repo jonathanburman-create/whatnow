@@ -3,14 +3,20 @@
 # updates from the latest GitHub release every 10 minutes, and a nightly copy of the databases.
 #
 #   curl -fsSLO https://raw.githubusercontent.com/jonathanburman-create/whatnow/main/scripts/server-setup.sh
-#   sudo bash server-setup.sh 35-190-172-58.sslip.io
+#   sudo bash server-setup.sh 35-190-172-58.sslip.io [max-users]
 #
+# max-users is how many Google accounts may sign up (default 1; each gets its own empty planner).
 # It asks for the Google sign-in client ID and secret the first time. Running it again is safe.
 set -euo pipefail
 
 REPO="jonathanburman-create/whatnow"
 HOST="${1:?usage: sudo bash server-setup.sh <hostname>}"
 HOST="${HOST,,}"
+MAX_USERS="${2:-1}"
+if ! [[ "$MAX_USERS" =~ ^[1-9][0-9]*$ ]]; then
+	echo "max-users must be a whole number, got $MAX_USERS" >&2
+	exit 1
+fi
 
 if [[ $EUID -ne 0 ]]; then
 	echo "Run it with sudo: sudo bash server-setup.sh $HOST" >&2
@@ -119,7 +125,7 @@ Wants=network-online.target
 User=whatnow
 Group=whatnow
 EnvironmentFile=/etc/whatnow.env
-ExecStart=/usr/local/bin/whatnow host -addr 127.0.0.1:8080 -data /var/lib/whatnow -public-url https://$HOST -max-users 1
+ExecStart=/usr/local/bin/whatnow host -addr 127.0.0.1:8080 -data /var/lib/whatnow -public-url https://$HOST -max-users $MAX_USERS
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
