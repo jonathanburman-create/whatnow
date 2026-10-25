@@ -37,6 +37,8 @@ When the user dictates a brain dump, sort it yourself and file everything with o
 - events are things at a fixed time.
 Anything at a fixed time also belongs in the user's Apple Calendar, and anything they need an alert for at a set time belongs in Apple Reminders. If you can create calendar events and reminders on their device, do that too.
 
+Notes the user typed into the app or sent from their phone wait unsorted in the inbox. When they ask you to tidy up, and before you plan their day, call get_inbox and sort each note with sort_note, the same way you sort a dump.
+
 Call get_overview before planning or answering questions about their day. Every change can be undone with undo_last. Keep replies short; the user sees the result in the app.`
 
 // Handler serves the connector over streamable HTTP. It keeps no sessions: each request stands
@@ -67,6 +69,12 @@ func newServer(d Deps) *mcp.Server {
 	mcp.AddTool(s, &mcp.Tool{Name: "add_items",
 		Description: "File what you sorted out of a brain dump, all at once: tasks, ideas, and events. One call is one undo."},
 		c.addItems)
+	mcp.AddTool(s, &mcp.Tool{Name: "get_inbox",
+		Description: "Unsorted notes the user typed into the app or sent from their phone, oldest first, each still a single raw task."},
+		c.inbox)
+	mcp.AddTool(s, &mcp.Tool{Name: "sort_note",
+		Description: "Replace one unsorted inbox note with the tasks, ideas, and events you sorted out of it. The note itself goes away. One call is one undo."},
+		c.sortNote)
 	mcp.AddTool(s, &mcp.Tool{Name: "update_task",
 		Description: "Change some of a task's fields. Leave out a field to keep it; send an empty string to clear it. To put a task off, use push_task."},
 		c.updateTask)
@@ -344,45 +352,53 @@ func (c *conn) addItems(ctx context.Context, _ *mcp.CallToolRequest, in AddItems
 	if len(in.Tasks)+len(in.Ideas)+len(in.Events) == 0 {
 		return nil, Added{}, errors.New("nothing to add: send at least one task, idea, or event")
 	}
-	out := Added{Tasks: []TaskOut{}, Ideas: []IdeaOut{}, Events: []EventOut{}}
+	var out Added
 	err := c.write(ctx, func(batch int64) error {
-		for _, n := range in.Tasks {
-			t, err := c.Service.CreateTask(ctx, batch, service.TaskFields{
-				Title: n.Title, Notes: n.Notes, RawText: in.RawText, Area: optional[domain.Area](n.Area),
-				DueOn: optional[domain.Date](n.DueOn), NotBefore: optional[domain.Date](n.NotBefore),
-				Size: optional[domain.Size](n.Size), Energy: optional[domain.Energy](n.Energy), Feeling: n.Feeling,
-			})
-			if err != nil {
-				return fmt.Errorf("task %q: %w", n.Title, err)
-			}
-			out.Tasks = append(out.Tasks, taskOut(t))
-		}
-		for _, n := range in.Ideas {
-			i, err := c.Service.CreateIdea(ctx, batch, service.IdeaFields{Title: n.Title, Notes: n.Notes,
-				Area: optional[domain.Area](n.Area), RawText: in.RawText})
-			if err != nil {
-				return fmt.Errorf("idea %q: %w", n.Title, err)
-			}
-			out.Ideas = append(out.Ideas, c.ideaOut(i))
-		}
-		for _, n := range in.Events {
-			f, err := c.eventFields(n)
-			if err != nil {
-				return err
-			}
-			f.RawText = in.RawText
-			e, err := c.Service.CreateEvent(ctx, batch, f)
-			if err != nil {
-				return fmt.Errorf("event %q: %w", n.Title, err)
-			}
-			out.Events = append(out.Events, c.eventOut(e))
-		}
-		return nil
+		var err error
+		out, err = c.file(ctx, batch, in)
+		return err
 	})
 	if err != nil {
 		return nil, Added{}, err
 	}
 	return nil, out, nil
+}
+
+// file adds a dump's sorted items in batch, each keeping the user's words as its raw text.
+func (c *conn) file(ctx context.Context, batch int64, in AddItemsIn) (Added, error) {
+	out := Added{Tasks: []TaskOut{}, Ideas: []IdeaOut{}, Events: []EventOut{}}
+	for _, n := range in.Tasks {
+		t, err := c.Service.CreateTask(ctx, batch, service.TaskFields{
+			Title: n.Title, Notes: n.Notes, RawText: in.RawText, Area: optional[domain.Area](n.Area),
+			DueOn: optional[domain.Date](n.DueOn), NotBefore: optional[domain.Date](n.NotBefore),
+			Size: optional[domain.Size](n.Size), Energy: optional[domain.Energy](n.Energy), Feeling: n.Feeling,
+		})
+		if err != nil {
+			return out, fmt.Errorf("task %q: %w", n.Title, err)
+		}
+		out.Tasks = append(out.Tasks, taskOut(t))
+	}
+	for _, n := range in.Ideas {
+		i, err := c.Service.CreateIdea(ctx, batch, service.IdeaFields{Title: n.Title, Notes: n.Notes,
+			Area: optional[domain.Area](n.Area), RawText: in.RawText})
+		if err != nil {
+			return out, fmt.Errorf("idea %q: %w", n.Title, err)
+		}
+		out.Ideas = append(out.Ideas, c.ideaOut(i))
+	}
+	for _, n := range in.Events {
+		f, err := c.eventFields(n)
+		if err != nil {
+			return out, err
+		}
+		f.RawText = in.RawText
+		e, err := c.Service.CreateEvent(ctx, batch, f)
+		if err != nil {
+			return out, fmt.Errorf("event %q: %w", n.Title, err)
+		}
+		out.Events = append(out.Events, c.eventOut(e))
+	}
+	return out, nil
 }
 
 func (c *conn) eventFields(n NewEvent) (service.EventFields, error) {
@@ -603,4 +619,70 @@ func (c *conn) undoLast(ctx context.Context, _ *mcp.CallToolRequest, _ Empty) (*
 	}
 	c.Hub.PublishUndone(batch)
 	return nil, Done{Done: true}, nil
+}
+
+// Note is an unsorted note in the inbox.
+type Note struct {
+	ID         int64  `json:"id"`
+	Text       string `json:"text"`
+	CapturedAt string `json:"captured_at"`
+}
+
+// Inbox is get_inbox's result.
+type Inbox struct {
+	Notes []Note `json:"notes"`
+}
+
+// unsorted says whether a task is a note captured as raw text that nothing has tidied: the user
+// made it, it has no area, and its title is still the raw text's first line.
+func unsorted(t domain.Task) bool {
+	return t.Status == domain.StatusOpen && t.CreatedBy == domain.ActorUser && t.RawText != "" && t.Area == nil &&
+		t.Title == service.RawTitle(t.RawText)
+}
+
+func (c *conn) inbox(ctx context.Context, _ *mcp.CallToolRequest, _ Empty) (*mcp.CallToolResult, Inbox, error) {
+	tasks, err := c.Service.ListTasks(ctx)
+	if err != nil {
+		return nil, Inbox{}, err
+	}
+	out := Inbox{Notes: []Note{}}
+	for _, t := range tasks {
+		if unsorted(t) {
+			out.Notes = append(out.Notes, Note{ID: t.ID, Text: t.RawText, CapturedAt: t.CreatedAt.In(c.Loc).Format(localTime)})
+		}
+	}
+	return nil, out, nil
+}
+
+// SortNoteIn is sort_note's input.
+type SortNoteIn struct {
+	NoteID int64      `json:"note_id"`
+	Tasks  []NewTask  `json:"tasks,omitempty"`
+	Ideas  []NewIdea  `json:"ideas,omitempty"`
+	Events []NewEvent `json:"events,omitempty"`
+}
+
+func (c *conn) sortNote(ctx context.Context, _ *mcp.CallToolRequest, in SortNoteIn) (*mcp.CallToolResult, Added, error) {
+	if len(in.Tasks)+len(in.Ideas)+len(in.Events) == 0 {
+		return nil, Added{}, errors.New("sort the note into at least one task, idea, or event; to drop it instead, use set_task_status")
+	}
+	note, err := c.Service.GetTask(ctx, in.NoteID)
+	if err != nil {
+		return nil, Added{}, err
+	}
+	if !unsorted(note) {
+		return nil, Added{}, fmt.Errorf("#%d isn't an unsorted note in the inbox", in.NoteID)
+	}
+	var out Added
+	err = c.write(ctx, func(batch int64) error {
+		var err error
+		if out, err = c.file(ctx, batch, AddItemsIn{Tasks: in.Tasks, Ideas: in.Ideas, Events: in.Events, RawText: note.RawText}); err != nil {
+			return err
+		}
+		return c.Service.DeleteTask(ctx, batch, note.ID)
+	})
+	if err != nil {
+		return nil, Added{}, err
+	}
+	return nil, out, nil
 }

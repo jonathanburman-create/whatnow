@@ -108,8 +108,8 @@ func TestOffersTheTools(t *testing.T) {
 		names = append(names, tl.Name)
 	}
 	slices.Sort(names)
-	want := []string{"add_items", "delete_event", "delete_idea", "get_overview", "idea_to_task", "list_ideas",
-		"list_tasks", "push_task", "set_plan", "set_task_status", "undo_last", "update_task"}
+	want := []string{"add_items", "delete_event", "delete_idea", "get_inbox", "get_overview", "idea_to_task", "list_ideas",
+		"list_tasks", "push_task", "set_plan", "set_task_status", "sort_note", "undo_last", "update_task"}
 	if !slices.Equal(names, want) {
 		t.Errorf("tools = %v, want %v", names, want)
 	}
@@ -303,5 +303,67 @@ func TestServesBehindALocalProxy(t *testing.T) {
 	h.ServeHTTP(w, req)
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"today"`) {
 		t.Errorf("status %d, body %s", w.Code, w.Body)
+	}
+}
+
+func TestInboxNotesAreSortedInPlace(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	userBatch := func() int64 {
+		t.Helper()
+		batch, err := f.svc.NewBatch(ctx, domain.ActorUser)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return batch
+	}
+	capture := func(raw string) domain.Task {
+		t.Helper()
+		task, err := f.svc.CreateTask(ctx, userBatch(), service.TaskFields{RawText: raw})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return task
+	}
+	note := capture("I need to pack before tomorrow. I'll do that after lunch. I need to clean the floor.")
+	tidied := capture("pay the phone bill")
+	if _, err := f.svc.UpdateTask(ctx, userBatch(), tidied.ID, service.TaskFields{Title: "Pay the phone bill"}); err != nil {
+		t.Fatal(err)
+	}
+
+	var inbox connector.Inbox
+	f.call(t, "get_inbox", map[string]any{}, &inbox)
+	if len(inbox.Notes) != 1 || inbox.Notes[0].ID != note.ID || inbox.Notes[0].CapturedAt != "2026-10-26T09:00" {
+		t.Fatalf("inbox = %+v, want only the untouched note", inbox)
+	}
+
+	var added connector.Added
+	f.call(t, "sort_note", map[string]any{"note_id": note.ID, "tasks": []map[string]any{
+		{"title": "Pack for tomorrow", "area": "personal", "due_on": "2026-10-26", "notes": "after lunch"},
+		{"title": "Clean the floor", "area": "home"},
+	}}, &added)
+	if len(added.Tasks) != 2 {
+		t.Fatalf("added = %+v", added)
+	}
+	if _, err := f.svc.GetTask(ctx, note.ID); err == nil {
+		t.Error("the sorted note is still there")
+	}
+	pack, _ := f.svc.GetTask(ctx, added.Tasks[0].ID)
+	if pack.RawText != note.RawText {
+		t.Errorf("sorted task lost the note's words: %q", pack.RawText)
+	}
+	f.call(t, "get_inbox", map[string]any{}, &inbox)
+	if len(inbox.Notes) != 0 {
+		t.Errorf("inbox after sorting = %+v", inbox)
+	}
+
+	if res := f.try(t, "sort_note", map[string]any{"note_id": tidied.ID, "tasks": []map[string]any{{"title": "x"}}}); !res.IsError {
+		t.Error("a tidied task was sorted as a note")
+	}
+
+	f.call(t, "undo_last", map[string]any{}, nil)
+	f.call(t, "get_inbox", map[string]any{}, &inbox)
+	if len(inbox.Notes) != 1 || inbox.Notes[0].ID != note.ID {
+		t.Errorf("after undo, inbox = %+v, want the note back", inbox)
 	}
 }

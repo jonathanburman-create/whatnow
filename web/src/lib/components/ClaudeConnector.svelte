@@ -6,6 +6,7 @@
 
 	let key = $state<PushKey | null>(null);
 	let url = $state('');
+	let captureURL = $state('');
 	/** A key just made, shown this once. */
 	let newKey = $state('');
 	let loaded = $state(false);
@@ -15,6 +16,7 @@
 			(r) => {
 				key = r.key;
 				url = r.url;
+				captureURL = r.capture_url;
 				loaded = true;
 			},
 			(err) => toasts.error(err)
@@ -59,6 +61,11 @@
 		<div class="row">
 			<code class="shown">{url}</code>
 			<button type="button" class="btn small" onclick={() => copy(url)}>Copy</button>
+		</div>
+		<p class="muted hint">For an iPhone Shortcut, send <code>{'{"raw_text": "…"}'}</code> with the same key to:</p>
+		<div class="row">
+			<code class="shown">{captureURL}</code>
+			<button type="button" class="btn small" onclick={() => copy(captureURL)}>Copy</button>
 		</div>
 		{#if newKey}
 			<p class="hint">Your key. Copy it now: it won't be shown again.</p>

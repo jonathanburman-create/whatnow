@@ -103,3 +103,42 @@ func TestConnectorRefused(t *testing.T) {
 	f.want(f.do(http.MethodDelete, "/api/v1/connector/key", c, nil), http.StatusNoContent)
 	f.want(f.serve(connectorCall(t, key, "get_overview", map[string]any{})), http.StatusUnauthorized)
 }
+
+func captureRequest(t *testing.T, key, text string) *http.Request {
+	t.Helper()
+	b, err := json.Marshal(map[string]string{"raw_text": text})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/capture", bytes.NewReader(b))
+	req.Host = "whatnow.test"
+	req.Header.Set("Content-Type", "application/json")
+	if key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	return req
+}
+
+func TestCaptureFromAShortcut(t *testing.T) {
+	f := newFrontTest(t)
+	_, c := f.signIn("a")
+	key := f.createConnectorKey(c)
+
+	f.want(f.serve(captureRequest(t, key, "pack before tomorrow, clean the floor")), http.StatusCreated)
+	tasks := decodeBody[[]domain.Task](t, f.do(http.MethodGet, "/api/v1/tasks", c, nil))
+	if len(tasks) != 1 || tasks[0].RawText != "pack before tomorrow, clean the floor" || tasks[0].CreatedBy != domain.ActorUser {
+		t.Errorf("tasks = %+v", tasks)
+	}
+
+	f.want(f.serve(captureRequest(t, "", "x")), http.StatusUnauthorized)
+	f.want(f.serve(captureRequest(t, "wnc_nope", "x")), http.StatusUnauthorized)
+	push := f.createKey(c)
+	f.want(f.serve(captureRequest(t, push, "x")), http.StatusUnauthorized)
+
+	v := decodeBody[struct {
+		CaptureURL string `json:"capture_url"`
+	}](t, f.do(http.MethodGet, "/api/v1/connector/key", c, nil))
+	if v.CaptureURL != publicURL+"/capture" {
+		t.Errorf("capture url = %q", v.CaptureURL)
+	}
+}

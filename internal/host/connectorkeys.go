@@ -16,6 +16,10 @@ import (
 // a connector key in the Authorization header, never to the session cookie.
 const connectorPath = "/mcp"
 
+// capturePath takes a note from outside the browser, such as an iPhone Shortcut, with the same
+// key. The note lands in the inbox as raw text, as if typed into the app.
+const capturePath = "/capture"
+
 // ErrNoConnectorKey means the connector key is unknown, replaced, or revoked.
 var ErrNoConnectorKey = errors.New("host: no such connector key")
 
@@ -96,9 +100,10 @@ func (f *frontDoor) connectorKey(w http.ResponseWriter, r *http.Request, u User)
 		return
 	}
 	writeJSON(w, http.StatusOK, struct {
-		Key *ConnectorKey `json:"key"`
-		URL string        `json:"url"`
-	}{k, f.origin + connectorPath})
+		Key        *ConnectorKey `json:"key"`
+		URL        string        `json:"url"`
+		CaptureURL string        `json:"capture_url"`
+	}{k, f.origin + connectorPath, f.origin + capturePath})
 }
 
 func (f *frontDoor) createConnectorKey(w http.ResponseWriter, r *http.Request, u User) {
@@ -122,27 +127,48 @@ func (f *frontDoor) deleteConnectorKey(w http.ResponseWriter, r *http.Request, u
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// connector hands a request from Claude to the key's user's App. Each request counts against the
-// user's limiter, like any other write from outside.
+// connector hands a request from Claude to the key's user's App.
 func (f *frontDoor) connector(w http.ResponseWriter, r *http.Request) {
+	if u, ok := f.keyUser(w, r); ok {
+		f.registry.Serve(w, r, u.ID)
+	}
+}
+
+// capture saves a note sent with the connector key, such as from an iPhone Shortcut, as a raw
+// task. Its body is {"raw_text": "..."}, the same as capturing in the app, so with a model set up
+// cleanup tidies it, and without one it waits in the inbox for Claude.
+func (f *frontDoor) capture(w http.ResponseWriter, r *http.Request) {
+	u, ok := f.keyUser(w, r)
+	if !ok {
+		return
+	}
+	fwd := r.Clone(r.Context())
+	fwd.URL.Path = "/api/v1/tasks"
+	fwd.URL.RawPath = ""
+	f.registry.Serve(w, fwd, u.ID)
+}
+
+// keyUser returns the user whose connector key the request carries, or answers the request with
+// why not. Each request counts against the user's limiter, like any other write from outside.
+func (f *frontDoor) keyUser(w http.ResponseWriter, r *http.Request) (User, bool) {
 	key, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || key == "" {
 		writeJSON(w, http.StatusUnauthorized, errorBody{"send your connector key as a Bearer token"})
-		return
+		return User{}, false
 	}
 	u, err := f.accounts.UserForConnectorKey(r.Context(), key)
 	if errors.Is(err, ErrNoConnectorKey) {
 		writeJSON(w, http.StatusUnauthorized, errorBody{"unknown key"})
-		return
+		return User{}, false
 	}
 	if err != nil {
 		log.Printf("find connector key: %v", err)
 		writeJSON(w, http.StatusInternalServerError, errorBody{"could not check your key"})
-		return
+		return User{}, false
 	}
 	if !f.limiter(u.ID).AllowN(f.now(), 1) {
 		writeJSON(w, http.StatusTooManyRequests, errorBody{"too many requests; wait a minute and try again"})
-		return
+		return User{}, false
 	}
-	f.registry.Serve(w, r, u.ID)
+	return u, true
 }

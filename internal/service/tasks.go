@@ -71,6 +71,10 @@ func (f TaskFields) applyTo(t *domain.Task) {
 	t.Refs = f.Refs
 }
 
+// RawTitle is the title a task captured from raw text starts with. A task whose title still
+// matches its raw text's has never been tidied.
+func RawTitle(raw string) string { return titleFromRaw(raw) }
+
 // titleFromRaw returns the raw text's first line, cut on a rune boundary.
 func titleFromRaw(raw string) string {
 	line, _, _ := strings.Cut(strings.TrimSpace(raw), "\n")
