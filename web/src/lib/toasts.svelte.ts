@@ -116,6 +116,7 @@ export class Toasts {
 	 */
 	applied(b: BatchApplied): void {
 		if (b.source === 'cleanup') this.show(cleanupText(b.activity), b.batch_id);
+		if (b.source === 'claude') this.show(claudeText(b.activity), b.batch_id);
 	}
 
 	undone(batch: number): void {
@@ -147,6 +148,16 @@ export function cleanupText(activity: BatchApplied['activity']): string {
 	if (tasks === 0 && rest.length) return `Turned your note into ${listed(rest)}`;
 	if (tasks <= 1 && !rest.length) return 'Tidied up your note';
 	return `Split your note into ${listed([count(tasks, 'task'), ...rest])}`;
+}
+
+/** What Claude did through the connector, in a few words. */
+export function claudeText(activity: BatchApplied['activity']): string {
+	const made = (entity: string) => activity.filter((a) => a.action === 'create' && a.entity === entity).length;
+	const parts: string[] = [];
+	if (made('task')) parts.push(count(made('task'), 'task'));
+	if (made('idea')) parts.push(count(made('idea'), 'idea'));
+	if (made('event')) parts.push(count(made('event'), 'event'));
+	return parts.length ? `Claude added ${listed(parts)}` : 'Claude made a change';
 }
 
 /** Joins phrases as "a", "a and b", or "a, b and c". */

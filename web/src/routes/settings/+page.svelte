@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { api, type ConnectionResult, type Provider, type SettingsView } from '#lib/api.ts';
 	import AboutYou from '#lib/components/AboutYou.svelte';
+	import ClaudeConnector from '#lib/components/ClaudeConnector.svelte';
 	import DangerZone from '#lib/components/DangerZone.svelte';
 	import NotifyPermission from '#lib/components/NotifyPermission.svelte';
 	import SupportWhatnow from '#lib/components/SupportWhatnow.svelte';
@@ -185,6 +186,9 @@
 				<button class="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
 			</div>
 		</form>
+		{#if hosted}
+			<ClaudeConnector />
+		{/if}
 		<ThemePicker bind:theme={view.settings.theme} />
 		{#if hosted}
 			<SupportWhatnow />

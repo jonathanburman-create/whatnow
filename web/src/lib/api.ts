@@ -6,7 +6,7 @@ export type Size = 'S' | 'M' | 'L';
 export type Energy = 'low' | 'med' | 'high';
 export type Status = 'open' | 'done' | 'dropped';
 export type Tier = 'must' | 'should' | 'could';
-export type Source = 'user' | 'chat' | 'cleanup' | 'triage';
+export type Source = 'user' | 'chat' | 'cleanup' | 'triage' | 'claude';
 export type Provider = 'anthropic' | 'openai';
 /** Where a provider's key comes from. Empty means there is none. */
 export type KeySource = '' | 'keychain' | 'env' | 'saved';
@@ -410,6 +410,11 @@ export const api = {
 	/** A new key, replacing the old one. This is the only time it's shown. */
 	createPushKey: () => request<{ key: string }>('POST', '/integrations/jira/key'),
 	revokePushKey: () => request<void>('DELETE', '/integrations/jira/key'),
+	/** The Claude connector's key as the card shows it, and the address Claude connects to. Hosted only. */
+	connectorKey: () => request<{ key: PushKey | null; url: string }>('GET', '/connector/key'),
+	/** A new connector key, replacing the old one. This is the only time it's shown. */
+	createConnectorKey: () => request<{ key: string }>('POST', '/connector/key'),
+	revokeConnectorKey: () => request<void>('DELETE', '/connector/key'),
 	addTickets: (id: string, tickets: Ticket[]) => request<Mutation>('POST', `/integrations/${id}/add`, { tickets }),
 	skip: (id: string, key: string, title: string, event_id?: number) =>
 		request<Mutation>('POST', `/integrations/${id}/skipped`, { key, title, event_id }),

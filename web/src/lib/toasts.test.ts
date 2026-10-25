@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, type Source } from './api';
-import { cleanupText, Toasts } from './toasts.svelte';
+import { claudeText, cleanupText, Toasts } from './toasts.svelte';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -10,7 +10,8 @@ describe('Toasts', () => {
 		['cleanup', 1],
 		['user', 0],
 		['chat', 0],
-		['triage', 0]
+		['triage', 0],
+		['claude', 1]
 	] as [Source, number][])('Should toast a %s batch from the stream %i times', (source, want) => {
 		const t = new Toasts();
 		t.applied({ batch_id: 5, source, activity: [] });
@@ -124,5 +125,17 @@ describe('cleanupText', () => {
 		const t = new Toasts();
 		t.applied({ batch_id: 5, source: 'cleanup', activity: [act('update', 'task'), act('create', 'task')] });
 		expect(t.items).toMatchObject([{ text: 'Split your note into 2 tasks', batch: 5 }]);
+	});
+});
+
+describe('claudeText', () => {
+	const act = (action: string, entity: string) => ({ action, entity, entity_id: 1, before: null, after: null });
+	it('Should count what Claude added', () => {
+		expect(claudeText([act('create', 'task'), act('create', 'task'), act('create', 'idea'), act('create', 'event')])).toBe(
+			'Claude added 2 tasks, 1 idea and 1 event'
+		);
+	});
+	it('Should say a change happened when nothing was added', () => {
+		expect(claudeText([act('status', 'task')])).toBe('Claude made a change');
 	});
 });

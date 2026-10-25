@@ -1,0 +1,64 @@
+# Every push to main is tested, built for Linux, and published as the latest release, which the
+# server picks up within minutes (see scripts/server-setup.sh).
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Test and build the web client
+        working-directory: web
+        run: |
+          npm ci
+          npm test
+          npm run check
+          npm run build
+
+      - name: Embed the web client
+        run: |
+          find internal/web/dist -mindepth 1 ! -name .gitkeep -delete
+          cp -R web/build/. internal/web/dist/
+
+      - name: Test the server
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Build for Linux
+        run: |
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags="-s -w -X main.Version=build-${{ github.run_number }}" \
+            -o whatnow-linux-amd64 ./cmd/whatnow
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" whatnow-linux-amd64 \
+            --title "Build ${{ github.run_number }}" \
+            --notes "Built from ${GITHUB_SHA::7}." \
+            --target "$GITHUB_SHA" --latest
