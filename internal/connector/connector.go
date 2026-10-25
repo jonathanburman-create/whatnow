@@ -44,7 +44,15 @@ Call get_overview before planning or answering questions about their day. Every 
 func Handler(d Deps) http.Handler {
 	s := newServer(d)
 	return mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s },
-		&mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
+		&mcp.StreamableHTTPOptions{
+			Stateless:    true,
+			JSONResponse: true,
+			// The SDK refuses a request that arrives on a loopback address with a public Host,
+			// which is every request here: the server listens on 127.0.0.1 behind Caddy. The
+			// hosted front door already checks the Host against the public URL, and the
+			// connector key, before a request gets this far.
+			DisableLocalhostProtection: true,
+		})
 }
 
 func newServer(d Deps) *mcp.Server {

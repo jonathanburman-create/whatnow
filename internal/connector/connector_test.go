@@ -3,6 +3,8 @@ package connector_test
 import (
 	"context"
 	"encoding/json"
+	"net"
+	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"slices"
@@ -271,5 +273,35 @@ func TestUndoWithNothingToUndo(t *testing.T) {
 	f := newFixture(t)
 	if res := f.try(t, "undo_last", map[string]any{}); !res.IsError || !strings.Contains(text(res), "nothing to undo") {
 		t.Errorf("result = %+v", res)
+	}
+}
+
+// The hosted server listens on 127.0.0.1 behind a proxy that keeps the public Host, so a request
+// arrives on a loopback address with a public Host. It must still be served.
+func TestServesBehindALocalProxy(t *testing.T) {
+	db, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	now := func() time.Time { return time.Date(2026, 10, 26, 13, 0, 0, 0, time.UTC) }
+	svc := service.New(db, now)
+	hub := stream.NewHub()
+	noModel := func(context.Context) (llm.Client, settings.ProviderConfig, settings.Settings, error) {
+		return nil, settings.ProviderConfig{}, settings.Defaults(), settings.ErrNotConfigured
+	}
+	h := connector.Handler(connector.Deps{Service: svc, Hub: hub, Planner: planner.New(svc, hub, noModel, loc, now), Loc: loc, Now: now})
+
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_overview","arguments":{}}}`
+	req := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(body))
+	req.Host = "35-190-172-58.sslip.io"
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	local := &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8080}
+	req = req.WithContext(context.WithValue(req.Context(), http.LocalAddrContextKey, local))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"today"`) {
+		t.Errorf("status %d, body %s", w.Code, w.Body)
 	}
 }
