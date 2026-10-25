@@ -16,6 +16,11 @@ func (s *Server) listTasks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, tasks)
 }
 
+// listAreas returns every area a task can belong to, in display order.
+func (s *Server) listAreas(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, domain.Areas)
+}
+
 func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	var f service.TaskFields
 	if err := decode(r, &f); err != nil {

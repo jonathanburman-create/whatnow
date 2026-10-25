@@ -1,5 +1,7 @@
 // Types mirror the Go JSON. Only the fields the client reads are listed.
 
+import type { Area } from './areas';
+
 export type Size = 'S' | 'M' | 'L';
 export type Energy = 'low' | 'med' | 'high';
 export type Status = 'open' | 'done' | 'dropped';
@@ -22,6 +24,7 @@ export interface Task {
 	raw_text: string;
 	size: Size | null;
 	energy: Energy | null;
+	area: Area | null;
 	feeling: string;
 	due_on: string | null;
 	/** A push sets this. The task is put off until then. */
@@ -38,6 +41,7 @@ export interface TaskFields {
 	notes: string;
 	size: Size | null;
 	energy: Energy | null;
+	area: Area | null;
 	feeling: string;
 	due_on: string | null;
 	not_before: string | null;

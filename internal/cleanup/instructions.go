@@ -12,6 +12,7 @@ Task fields:
 - notes: useful detail from the note that doesn't fit the title. Links go in refs, not here.
 - size: S is under 30 minutes, M is a few hours, L is most of a day or more. Empty if you can't tell.
 - energy: the mental effort it takes. Use what the note says about how hard it feels. Empty if you can't tell.
+- area: the part of life the task belongs to. Almost every task fits one, so pick the closest. A course, reading, or assignment in Toronto is uoft; anything about the degree back home is huji.
 - feeling: a few words on how the user feels about it, taken from what they wrote ("dreading it", "excited"). Empty if they didn't say. Never invent a feeling.
 - due_on and not_before: dates as YYYY-MM-DD, worked out from the current date. "Today" means today's date. Empty unless the note says so.
 - refs: ticket keys and URLs in the note. label is the key or a short name. url is the link, or empty.

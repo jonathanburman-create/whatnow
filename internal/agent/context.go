@@ -170,6 +170,7 @@ func (a *Agent) system(ctx context.Context, date domain.Date, sit planner.Situat
 		}
 		fmt.Fprintf(&b, "[%d] %s %s\n", e.ID, when, e.Title)
 	}
+	b.WriteString("\n" + prompt.Areas())
 	return prompt.System(instructions, sit.Settings.Style, sit.Settings.AboutMe, b.String()), nil
 }
 

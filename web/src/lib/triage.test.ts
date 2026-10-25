@@ -9,6 +9,7 @@ const task = (id: number): Task => ({
 	raw_text: '',
 	size: null,
 	energy: null,
+	area: null,
 	feeling: '',
 	due_on: null,
 	not_before: null,

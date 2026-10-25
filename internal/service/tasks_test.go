@@ -69,6 +69,7 @@ func TestCreateTaskRejectsInvalidFields(t *testing.T) {
 		"no title or raw text": {Title: "   "},
 		"bad size":             {Title: "x", Size: ptr(domain.Size("XL"))},
 		"bad energy":           {Title: "x", Energy: ptr(domain.Energy("frantic"))},
+		"bad area":             {Title: "x", Area: ptr(domain.Area("work"))},
 		"bad due_on":           {Title: "x", DueOn: ptr(domain.Date("tomorrow"))},
 		"bad not_before":       {Title: "x", NotBefore: ptr(domain.Date("2026-13-01"))},
 	}
@@ -80,6 +81,31 @@ func TestCreateTaskRejectsInvalidFields(t *testing.T) {
 				t.Errorf("err = %v, want ErrInvalid", err)
 			}
 		})
+	}
+}
+
+func TestTaskAreaIsStoredAndCanBeCleared(t *testing.T) {
+	svc, _ := newService(t)
+	ctx := context.Background()
+	created, err := svc.CreateTask(ctx, newBatch(t, svc, domain.ActorUser),
+		service.TaskFields{Title: "read for ECO2000", Area: ptr(domain.AreaUofT)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := svc.GetTask(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Area == nil || *stored.Area != domain.AreaUofT {
+		t.Fatalf("area = %v, want uoft", stored.Area)
+	}
+
+	cleared, err := svc.UpdateTask(ctx, newBatch(t, svc, domain.ActorUser), created.ID, service.TaskFields{Title: stored.Title})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared.Area != nil {
+		t.Errorf("area = %v after an update without one, want none", *cleared.Area)
 	}
 }
 

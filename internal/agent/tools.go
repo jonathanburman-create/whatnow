@@ -47,6 +47,7 @@ var (
 		js.Prop("notes", js.String("Details worth keeping, or empty.")),
 		js.Prop("size", js.Enum("S (under an hour), M (one to three hours), L (more), or empty if unclear.", "S", "M", "L", "")),
 		js.Prop("energy", js.Enum("How much it takes out of them, or empty if unclear.", "low", "med", "high", "")),
+		js.Prop("area", js.Enum("The part of life it belongs to (see Areas in the context), or empty if it fits none.", append(domain.AreaIDs(), "")...)),
 		js.Prop("feeling", js.String("How they feel about it, in their words, or empty.")),
 		js.Prop("due_on", dateProp("When it's due,")),
 		js.Prop("not_before", dateProp("The first day it can be done,")),
@@ -65,7 +66,7 @@ var tools = []tool{
 	{"create_task", "Add a task. It waits in the unplanned tray until the next replan.", js.Object(taskProps...), createTask},
 	{"update_task", "Change some of a task's fields. To put a task off, use push_task instead.",
 		js.Object(js.Prop("task_id", taskID),
-			js.Prop("changes", changes("title", "notes", "size", "energy", "feeling", "due_on", "not_before"))), updateTask},
+			js.Prop("changes", changes("title", "notes", "size", "energy", "area", "feeling", "due_on", "not_before"))), updateTask},
 	{"complete_task", "Mark a task done.", js.Object(js.Prop("task_id", taskID)), statusTool(domain.StatusDone, "Done")},
 	{"drop_task", "Stop carrying a task without doing it.", js.Object(js.Prop("task_id", taskID)), statusTool(domain.StatusDropped, "Dropped")},
 	{"push_task", "Put a task off until a later date. Pushes are counted.",
@@ -136,6 +137,7 @@ type brief struct {
 	Notes     string         `json:"notes,omitempty"`
 	Size      *domain.Size   `json:"size,omitempty"`
 	Energy    *domain.Energy `json:"energy,omitempty"`
+	Area      *domain.Area   `json:"area,omitempty"`
 	Feeling   string         `json:"feeling,omitempty"`
 	DueOn     *domain.Date   `json:"due_on,omitempty"`
 	NotBefore *domain.Date   `json:"not_before,omitempty"`
@@ -143,7 +145,7 @@ type brief struct {
 
 func briefOf(t domain.Task) brief {
 	return brief{ID: t.ID, Title: t.Title, Status: t.Status, Notes: t.Notes, Size: t.Size, Energy: t.Energy,
-		Feeling: t.Feeling, DueOn: t.DueOn, NotBefore: t.NotBefore}
+		Area: t.Area, Feeling: t.Feeling, DueOn: t.DueOn, NotBefore: t.NotBefore}
 }
 
 func name(t domain.Task) string { return fmt.Sprintf("#%d %q", t.ID, t.Title) }
@@ -174,6 +176,7 @@ type taskArgs struct {
 	Notes     string `json:"notes"`
 	Size      string `json:"size"`
 	Energy    string `json:"energy"`
+	Area      string `json:"area"`
 	Feeling   string `json:"feeling"`
 	DueOn     string `json:"due_on"`
 	NotBefore string `json:"not_before"`
@@ -198,7 +201,7 @@ func createTask(ctx context.Context, t *turn, input json.RawMessage) (string, an
 	}
 	task, err := t.agent.svc.CreateTask(ctx, batch, service.TaskFields{
 		Title: in.Title, Notes: in.Notes, Size: optional[domain.Size](in.Size), Energy: optional[domain.Energy](in.Energy),
-		Feeling: in.Feeling, DueOn: optional[domain.Date](in.DueOn), NotBefore: optional[domain.Date](in.NotBefore),
+		Area: optional[domain.Area](in.Area), Feeling: in.Feeling, DueOn: optional[domain.Date](in.DueOn), NotBefore: optional[domain.Date](in.NotBefore),
 	})
 	if err != nil {
 		return "", nil, err
@@ -224,8 +227,8 @@ func updateTask(ctx context.Context, t *turn, input json.RawMessage) (string, an
 	if err != nil {
 		return "", nil, err
 	}
-	f := service.TaskFields{Title: task.Title, Notes: task.Notes, Size: task.Size, Energy: task.Energy, Feeling: task.Feeling,
-		DueOn: task.DueOn, NotBefore: task.NotBefore, Refs: task.Refs}
+	f := service.TaskFields{Title: task.Title, Notes: task.Notes, Size: task.Size, Energy: task.Energy, Area: task.Area,
+		Feeling: task.Feeling, DueOn: task.DueOn, NotBefore: task.NotBefore, Refs: task.Refs}
 	for _, c := range in.Changes {
 		switch c.Field {
 		case "title":
@@ -236,6 +239,8 @@ func updateTask(ctx context.Context, t *turn, input json.RawMessage) (string, an
 			f.Size = optional[domain.Size](c.Value)
 		case "energy":
 			f.Energy = optional[domain.Energy](c.Value)
+		case "area":
+			f.Area = optional[domain.Area](c.Value)
 		case "feeling":
 			f.Feeling = c.Value
 		case "due_on":

@@ -9,6 +9,7 @@ const task = (id: number, status: Status = 'open', updated_at = '2026-10-05T15:0
 	raw_text: '',
 	size: null,
 	energy: null,
+	area: null,
 	feeling: '',
 	due_on: null,
 	not_before: null,

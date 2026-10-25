@@ -1,6 +1,11 @@
 package cleanup
 
-import js "github.com/jameynakama/whatnow/internal/jsonschema"
+import (
+	"strings"
+
+	"github.com/jameynakama/whatnow/internal/domain"
+	js "github.com/jameynakama/whatnow/internal/jsonschema"
+)
 
 // schema is the reply shape. Empty strings stand for "none". A task's ref and title come before
 // its details, and blockers come after the tasks they refer to.
@@ -28,6 +33,7 @@ func taskFields() []js.Field {
 		js.Prop("notes", js.String("Useful detail that doesn't fit the title, or empty.")),
 		js.Prop("size", js.Enum("S, M, or L, or empty if unclear.", "", "S", "M", "L")),
 		js.Prop("energy", js.Enum("Mental effort: low, med, or high, or empty if unclear.", "", "low", "med", "high")),
+		js.Prop("area", js.Enum(areaDescription(), append([]string{""}, domain.AreaIDs()...)...)),
 		js.Prop("feeling", js.String("How the user feels about it, in their words, or empty.")),
 		js.Prop("due_on", js.String("YYYY-MM-DD, or empty.")),
 		js.Prop("not_before", js.String("YYYY-MM-DD, or empty.")),
@@ -36,4 +42,14 @@ func taskFields() []js.Field {
 			js.Prop("url", js.String("The link, or empty.")),
 		))),
 	}
+}
+
+// areaDescription tells the model what belongs in each area.
+func areaDescription() string {
+	var b strings.Builder
+	b.WriteString("The part of life it belongs to, or empty only if it truly fits none:")
+	for _, a := range domain.Areas {
+		b.WriteString(" " + string(a.ID) + " is " + a.Covers + ";")
+	}
+	return strings.TrimSuffix(b.String(), ";") + "."
 }

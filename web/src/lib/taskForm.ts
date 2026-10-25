@@ -1,4 +1,5 @@
 import type { Energy, Size, Task, TaskFields } from './api';
+import type { Area } from './areas';
 
 /** The edit form's values. Every field is a string; empty means unset. */
 export interface TaskForm {
@@ -6,13 +7,14 @@ export interface TaskForm {
 	notes: string;
 	size: Size | '';
 	energy: Energy | '';
+	area: Area | '';
 	feeling: string;
 	due_on: string;
 	not_before: string;
 }
 
 export function blankForm(): TaskForm {
-	return { title: '', notes: '', size: '', energy: '', feeling: '', due_on: '', not_before: '' };
+	return { title: '', notes: '', size: '', energy: '', area: '', feeling: '', due_on: '', not_before: '' };
 }
 
 export function formFor(task: Task): TaskForm {
@@ -21,6 +23,7 @@ export function formFor(task: Task): TaskForm {
 		notes: task.notes,
 		size: task.size ?? '',
 		energy: task.energy ?? '',
+		area: task.area ?? '',
 		feeling: task.feeling,
 		due_on: task.due_on ?? '',
 		not_before: task.not_before ?? ''
@@ -41,6 +44,7 @@ export function fieldsFrom(form: TaskForm, task: Task | null): { fields: TaskFie
 			notes: form.notes,
 			size: form.size || null,
 			energy: form.energy || null,
+			area: form.area || null,
 			feeling: form.feeling,
 			due_on: form.due_on || null,
 			not_before: form.not_before || null,

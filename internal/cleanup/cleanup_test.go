@@ -85,7 +85,7 @@ func reply(t *testing.T, v any) replyFunc {
 }
 
 func task(fields map[string]any) map[string]any {
-	base := map[string]any{"title": "", "notes": "", "size": "", "energy": "", "feeling": "",
+	base := map[string]any{"title": "", "notes": "", "size": "", "energy": "", "area": "", "feeling": "",
 		"due_on": "", "not_before": "", "refs": []any{}}
 	for k, v := range fields {
 		base[k] = v
@@ -176,6 +176,31 @@ func TestSplitsANoteIntoTasksWithABlocker(t *testing.T) {
 	tasks, _ = f.svc.ListTasks(ctx)
 	if len(tasks) != 2 || tasks[1].Title != captured.Title {
 		t.Errorf("after undo: %+v", tasks)
+	}
+}
+
+func TestCleanupFilesEachTaskInAnArea(t *testing.T) {
+	f := newFixture(t, reply(t, map[string]any{
+		"original":  task(map[string]any{"keep": true, "title": "Read chapter 4 for ECO2000", "area": "uoft"}),
+		"new_tasks": []any{task(map[string]any{"ref": "n1", "title": "Pay the phone bill", "area": "home"})},
+		"events":    []any{},
+		"blockers":  []any{},
+	}))
+	captured := f.capture(t, "read ch 4 for eco2000 and pay the phone bill")
+	ctx := context.Background()
+
+	if _, err := f.runner.Clean(ctx, captured); err != nil {
+		t.Fatal(err)
+	}
+
+	tasks, _ := f.svc.ListTasks(ctx)
+	if len(tasks) != 2 {
+		t.Fatalf("got %d tasks, want 2", len(tasks))
+	}
+	for i, want := range []domain.Area{domain.AreaUofT, domain.AreaHome} {
+		if got := tasks[i].Area; got == nil || *got != want {
+			t.Errorf("task %q area = %v, want %s", tasks[i].Title, got, want)
+		}
 	}
 }
 

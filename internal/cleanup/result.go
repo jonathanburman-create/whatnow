@@ -23,6 +23,7 @@ type taskOut struct {
 	Notes     string       `json:"notes"`
 	Size      string       `json:"size"`
 	Energy    string       `json:"energy"`
+	Area      string       `json:"area"`
 	Feeling   string       `json:"feeling"`
 	DueOn     string       `json:"due_on"`
 	NotBefore string       `json:"not_before"`
@@ -57,6 +58,7 @@ func (t taskOut) fields() service.TaskFields {
 		Notes:     t.Notes,
 		Size:      optional[domain.Size](t.Size),
 		Energy:    optional[domain.Energy](t.Energy),
+		Area:      optional[domain.Area](t.Area),
 		Feeling:   t.Feeling,
 		DueOn:     optional[domain.Date](t.DueOn),
 		NotBefore: optional[domain.Date](t.NotBefore),

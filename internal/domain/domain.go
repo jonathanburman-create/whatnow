@@ -46,6 +46,52 @@ const (
 
 func (e Energy) Valid() bool { return e == EnergyLow || e == EnergyMed || e == EnergyHigh }
 
+// Area is the part of life a task belongs to. The set is fixed: Areas lists every one.
+type Area string
+
+const (
+	AreaHUJI     Area = "huji"
+	AreaUofT     Area = "uoft"
+	AreaHome     Area = "home"
+	AreaPersonal Area = "personal"
+	AreaProjects Area = "projects"
+)
+
+// AreaInfo describes an area: its label for people and what belongs in it, which the model reads
+// when it picks one.
+type AreaInfo struct {
+	ID     Area   `json:"id"`
+	Label  string `json:"label"`
+	Covers string `json:"covers"`
+}
+
+// Areas lists every area, in the order they're shown.
+var Areas = []AreaInfo{
+	{AreaHUJI, "HUJI", "the home degree at Hebrew University: exams, credit transfers, admin"},
+	{AreaUofT, "UofT", "the exchange semester at the University of Toronto: courses, readings, assignments, admin"},
+	{AreaHome, "Home / life admin", "errands, bills, bureaucracy, shopping, the apartment"},
+	{AreaPersonal, "Personal & social", "friends, family, plans, trips, health, hobbies"},
+	{AreaProjects, "Side projects", "tech setups, research help and other self-directed projects"},
+}
+
+func (a Area) Valid() bool {
+	for _, info := range Areas {
+		if info.ID == a {
+			return true
+		}
+	}
+	return false
+}
+
+// AreaIDs returns the IDs of every area, in order.
+func AreaIDs() []string {
+	ids := make([]string, len(Areas))
+	for i, info := range Areas {
+		ids[i] = string(info.ID)
+	}
+	return ids
+}
+
 // Date is a calendar date in YYYY-MM-DD form.
 type Date string
 
@@ -67,6 +113,7 @@ type Task struct {
 	RawText   string     `json:"raw_text"`
 	Size      *Size      `json:"size"`
 	Energy    *Energy    `json:"energy"`
+	Area      *Area      `json:"area"`
 	Feeling   string     `json:"feeling"`
 	DueOn     *Date      `json:"due_on"`
 	NotBefore *Date      `json:"not_before"`

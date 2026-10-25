@@ -67,6 +67,7 @@ func New(d Deps) http.Handler {
 	s := &Server{Deps: d}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/tasks", s.listTasks)
+	mux.HandleFunc("GET /api/v1/areas", s.listAreas)
 	mux.HandleFunc("POST /api/v1/tasks", s.createTask)
 	mux.HandleFunc("PUT /api/v1/tasks/{id}", s.updateTask)
 	mux.HandleFunc("POST /api/v1/tasks/{id}/status", s.setTaskStatus)

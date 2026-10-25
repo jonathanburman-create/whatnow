@@ -21,6 +21,7 @@ type TaskFields struct {
 	RawText   string         `json:"raw_text"`
 	Size      *domain.Size   `json:"size"`
 	Energy    *domain.Energy `json:"energy"`
+	Area      *domain.Area   `json:"area"`
 	Feeling   string         `json:"feeling"`
 	DueOn     *domain.Date   `json:"due_on"`
 	NotBefore *domain.Date   `json:"not_before"`
@@ -43,6 +44,9 @@ func (f *TaskFields) normalize() error {
 	if f.Energy != nil && !f.Energy.Valid() {
 		return fmt.Errorf("%w: energy %q", ErrInvalid, *f.Energy)
 	}
+	if f.Area != nil && !f.Area.Valid() {
+		return fmt.Errorf("%w: area %q", ErrInvalid, *f.Area)
+	}
 	if f.DueOn != nil && !f.DueOn.Valid() {
 		return fmt.Errorf("%w: due_on %q", ErrInvalid, *f.DueOn)
 	}
@@ -60,6 +64,7 @@ func (f TaskFields) applyTo(t *domain.Task) {
 	t.Notes = f.Notes
 	t.Size = f.Size
 	t.Energy = f.Energy
+	t.Area = f.Area
 	t.Feeling = f.Feeling
 	t.DueOn = f.DueOn
 	t.NotBefore = f.NotBefore
@@ -236,7 +241,7 @@ func (s *Service) DoneBetween(ctx context.Context, from, to time.Time) ([]domain
 	return tasks, rows.Err()
 }
 
-const taskColumns = `id, title, notes, raw_text, size, energy, feeling, due_on, not_before, status, refs,
+const taskColumns = `id, title, notes, raw_text, size, energy, area, feeling, due_on, not_before, status, refs,
 	created_by, created_at, updated_at, deleted_at`
 
 func liveTask(ctx context.Context, q querier, id int64) (domain.Task, error) {
@@ -249,15 +254,16 @@ func liveTask(ctx context.Context, q querier, id int64) (domain.Task, error) {
 
 func scanTask(row scanner) (domain.Task, error) {
 	var t domain.Task
-	var size, energy, dueOn, notBefore, deletedAt sql.NullString
+	var size, energy, area, dueOn, notBefore, deletedAt sql.NullString
 	var refs, createdAt, updatedAt string
-	err := row.Scan(&t.ID, &t.Title, &t.Notes, &t.RawText, &size, &energy, &t.Feeling, &dueOn, &notBefore,
+	err := row.Scan(&t.ID, &t.Title, &t.Notes, &t.RawText, &size, &energy, &area, &t.Feeling, &dueOn, &notBefore,
 		&t.Status, &refs, &t.CreatedBy, &createdAt, &updatedAt, &deletedAt)
 	if err != nil {
 		return t, err
 	}
 	t.Size = fromNull[domain.Size](size)
 	t.Energy = fromNull[domain.Energy](energy)
+	t.Area = fromNull[domain.Area](area)
 	t.DueOn = fromNull[domain.Date](dueOn)
 	t.NotBefore = fromNull[domain.Date](notBefore)
 	if err := json.Unmarshal([]byte(refs), &t.Refs); err != nil {
@@ -279,9 +285,9 @@ func insertTask(ctx context.Context, tx *sql.Tx, t *domain.Task) error {
 		return err
 	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO tasks (title, notes, raw_text, size, energy, feeling, due_on, not_before, status, refs,
-		 created_by, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		t.Title, t.Notes, t.RawText, toNull(t.Size), toNull(t.Energy), t.Feeling, toNull(t.DueOn), toNull(t.NotBefore),
+		`INSERT INTO tasks (title, notes, raw_text, size, energy, area, feeling, due_on, not_before, status, refs,
+		 created_by, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		t.Title, t.Notes, t.RawText, toNull(t.Size), toNull(t.Energy), toNull(t.Area), t.Feeling, toNull(t.DueOn), toNull(t.NotBefore),
 		string(t.Status), string(refs), string(t.CreatedBy), formatTime(t.CreatedAt), formatTime(t.UpdatedAt),
 		formatNullTime(t.DeletedAt))
 	if err != nil {
@@ -298,10 +304,10 @@ func writeTask(ctx context.Context, tx *sql.Tx, t domain.Task) error {
 		return err
 	}
 	_, err = tx.ExecContext(ctx,
-		`UPDATE tasks SET title = ?, notes = ?, raw_text = ?, size = ?, energy = ?, feeling = ?, due_on = ?,
+		`UPDATE tasks SET title = ?, notes = ?, raw_text = ?, size = ?, energy = ?, area = ?, feeling = ?, due_on = ?,
 		 not_before = ?, status = ?, refs = ?, created_by = ?, created_at = ?, updated_at = ?, deleted_at = ?
 		 WHERE id = ?`,
-		t.Title, t.Notes, t.RawText, toNull(t.Size), toNull(t.Energy), t.Feeling, toNull(t.DueOn), toNull(t.NotBefore),
+		t.Title, t.Notes, t.RawText, toNull(t.Size), toNull(t.Energy), toNull(t.Area), t.Feeling, toNull(t.DueOn), toNull(t.NotBefore),
 		string(t.Status), string(refs), string(t.CreatedBy), formatTime(t.CreatedAt), formatTime(t.UpdatedAt),
 		formatNullTime(t.DeletedAt), t.ID)
 	return err

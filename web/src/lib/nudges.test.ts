@@ -38,6 +38,7 @@ const task = (id: number, over: Partial<Task> = {}): Task => ({
 	raw_text: '',
 	size: null,
 	energy: null,
+	area: null,
 	feeling: '',
 	due_on: date,
 	not_before: null,

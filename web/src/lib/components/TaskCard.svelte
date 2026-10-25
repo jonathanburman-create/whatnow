@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api, type Tier } from '#lib/api.ts';
+	import { areaOf } from '#lib/areas.ts';
 	import { dismiss } from '#lib/dismiss.ts';
 	import { editor } from '#lib/editor.svelte.ts';
 	import { linked } from '#lib/linked.svelte.ts';
@@ -23,6 +24,7 @@
 	let menuOpen = $state(false);
 	let expanded = $state(false);
 	const task = $derived(card.task);
+	const area = $derived(areaOf(task.area));
 	const chain = $derived(links(task.id, today.blockers, today.tasks));
 	const movable = $derived(!listed && !!today.today?.plan && !today.today.day?.wrapped_at);
 	const moves: { to: Tier | null; label: string }[] = [
@@ -77,6 +79,11 @@
 		<span class="mark" aria-label={task.status}>{task.status === 'done' ? '✓' : '✕'}</span>
 	{/if}
 	<div class="main">
+		{#if area}
+			<a class="area" href="/tasks?area={area.id}" style:--area={area.color} title="Everything in {area.label}">
+				{area.label}
+			</a>
+		{/if}
 		<button
 			class="body"
 			onclick={() => (listed ? editor.open(task.id) : (expanded = !expanded))}
@@ -206,6 +213,28 @@
 	}
 	.title {
 		font-weight: var(--heavy);
+	}
+	.area {
+		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		font-size: 11px;
+		font-weight: var(--heavy);
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--ink-soft);
+		text-decoration: none;
+	}
+	.area::before {
+		content: '';
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--area);
+	}
+	.area:hover {
+		color: var(--ink);
 	}
 	.badges {
 		display: flex;

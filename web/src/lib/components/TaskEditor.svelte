@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api, type Task } from '#lib/api.ts';
+	import { areas } from '#lib/areas.ts';
 	import { editor } from '#lib/editor.svelte.ts';
 	import { blankForm, fieldsFrom, formFor } from '#lib/taskForm.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
@@ -75,6 +76,15 @@
 	<label>
 		<span class="label">Notes</span>
 		<textarea class="field" rows="3" bind:value={form.notes}></textarea>
+	</label>
+	<label>
+		<span class="label">Area</span>
+		<select class="field" bind:value={form.area}>
+			<option value="">none</option>
+			{#each areas as a (a.id)}
+				<option value={a.id}>{a.label}</option>
+			{/each}
+		</select>
 	</label>
 	<div class="row">
 		<label>

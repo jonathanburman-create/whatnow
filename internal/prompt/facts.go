@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jameynakama/whatnow/internal/domain"
 	"github.com/jameynakama/whatnow/internal/facts"
 )
 
@@ -51,6 +52,9 @@ func Facts(f facts.Facts) string {
 		if t.Energy != nil {
 			details = append(details, string(*t.Energy)+" energy")
 		}
+		if t.Area != nil {
+			details = append(details, "area "+string(*t.Area))
+		}
 		if len(details) > 0 {
 			fmt.Fprintf(&b, " [%s]", strings.Join(details, ", "))
 		}
@@ -61,6 +65,16 @@ func Facts(f facts.Facts) string {
 		for _, a := range tf.Annotations {
 			fmt.Fprintf(&b, "  - %s\n", a)
 		}
+	}
+	return b.String()
+}
+
+// Areas lists the parts of life a task can belong to, as id: what belongs there.
+func Areas() string {
+	var b strings.Builder
+	b.WriteString("Areas a task can belong to, as id: what belongs there:\n")
+	for _, a := range domain.Areas {
+		fmt.Fprintf(&b, "- %s (%s): %s\n", a.ID, a.Label, a.Covers)
 	}
 	return b.String()
 }
