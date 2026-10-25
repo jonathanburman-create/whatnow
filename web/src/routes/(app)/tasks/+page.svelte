@@ -76,6 +76,19 @@
 	.areas {
 		margin-bottom: 8px;
 	}
+	/* On a narrow screen the areas sit in one row that scrolls sideways, so the list starts higher up. */
+	@media (max-width: 800px) {
+		.areas {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scrollbar-width: none;
+			margin-inline: -12px;
+			padding: 2px 12px 4px;
+		}
+		.areas .chip {
+			flex: none;
+		}
+	}
 	.chip {
 		background: var(--card);
 		cursor: pointer;

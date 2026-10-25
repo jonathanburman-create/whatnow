@@ -219,10 +219,8 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 5px;
-		font-size: 11px;
+		font-size: 12px;
 		font-weight: var(--heavy);
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
 		color: var(--ink-soft);
 		text-decoration: none;
 	}
