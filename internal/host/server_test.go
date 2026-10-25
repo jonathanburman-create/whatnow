@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jameynakama/whatnow/internal/app"
+	"github.com/jameynakama/whatnow/internal/connector"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/integrations"
 	"github.com/jameynakama/whatnow/internal/settings"
@@ -81,6 +82,7 @@ func (f *frontTest) open(userID, dbPath string) (*app.App, http.Handler, error) 
 		Integrations: a.Integrations,
 		Static:       http.NotFoundHandler(),
 		Hosted:       true,
+		Connector:    connector.Handler(connector.Deps{Service: a.Service, Hub: a.Hub, Planner: a.Planner, Loc: a.Loc, Now: a.Now}),
 	}), nil
 }
 

@@ -48,6 +48,9 @@ type Deps struct {
 	// Static serves the web client for every GET outside the API.
 	Static       http.Handler
 	Integrations *integrations.Runner
+	// Connector serves Claude's custom connector at /mcp. The hosted front door checks its key;
+	// nil leaves the route out.
+	Connector http.Handler
 	// Hosted serves one user of a shared server: the front door has already authenticated the
 	// request, so there is no local-only guard and no allowed hosts to set.
 	Hosted bool
@@ -114,6 +117,12 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("DELETE /api/v1/data", s.deleteData)
 	mux.HandleFunc("GET /api/v1/clock", s.clock)
 	mux.HandleFunc("GET /api/v1/session", s.session)
+	if d.Connector != nil {
+		// Each method by name: a bare /mcp would clash with GET / below.
+		for _, method := range []string{http.MethodPost, http.MethodGet, http.MethodDelete} {
+			mux.Handle(method+" /mcp", d.Connector)
+		}
+	}
 	mux.Handle("GET /", d.Static)
 	if d.Hosted {
 		// Only the front door reaches this, for a push made with the user's key.

@@ -74,6 +74,8 @@ const (
 	SourceChat    Source = "chat"
 	SourceCleanup Source = "cleanup"
 	SourceTriage  Source = "triage"
+	// SourceClaude is Claude in the Claude app, through the connector.
+	SourceClaude Source = "claude"
 )
 
 // BatchApplied is the batch.applied payload, sent after every write.

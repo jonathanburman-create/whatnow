@@ -85,6 +85,10 @@ func New(cfg Config, accounts *Accounts, registry *Registry) http.Handler {
 	mux.HandleFunc("GET /api/v1/integrations/jira/key", f.withUser(f.pushKey))
 	mux.HandleFunc("POST /api/v1/integrations/jira/key", f.withUser(f.createPushKey))
 	mux.HandleFunc("DELETE /api/v1/integrations/jira/key", f.withUser(f.deletePushKey))
+	mux.HandleFunc(connectorPath, f.connector)
+	mux.HandleFunc("GET /api/v1/connector/key", f.withUser(f.connectorKey))
+	mux.HandleFunc("POST /api/v1/connector/key", f.withUser(f.createConnectorKey))
+	mux.HandleFunc("DELETE /api/v1/connector/key", f.withUser(f.deleteConnectorKey))
 	mux.HandleFunc("/api/v1/", f.withUser(f.dispatch))
 	mux.Handle("/", cfg.Static)
 	return f.guard(mux)
@@ -92,8 +96,9 @@ func New(cfg Config, accounts *Accounts, registry *Registry) http.Handler {
 
 // guard refuses requests another site could make through the user's browser. A Host that isn't
 // the public one means DNS rebinding. A write from another origin, or one that isn't JSON (a
-// cross-site form post, which skips the CORS preflight), is cross-site request forgery. A push
-// carries its key in a header no browser sends on its own, so it has no Origin to check.
+// cross-site form post, which skips the CORS preflight), is cross-site request forgery. A push,
+// and a request from Claude's connector, carries its key in a header no browser sends on its own,
+// so it has no Origin to check.
 func (f *frontDoor) guard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.EqualFold(r.Host, f.host) {
@@ -102,7 +107,8 @@ func (f *frontDoor) guard(next http.Handler) http.Handler {
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
-			crossSite := r.Header.Get("Origin") != f.origin && r.URL.Path != pushPath
+			keyed := r.URL.Path == pushPath || r.URL.Path == connectorPath
+			crossSite := r.Header.Get("Origin") != f.origin && !keyed
 			if crossSite || err != nil || mt != "application/json" {
 				writeJSON(w, http.StatusForbidden, errorBody{"writes must be application/json from this site"})
 				return

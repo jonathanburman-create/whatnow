@@ -21,6 +21,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jameynakama/whatnow/internal/app"
+	"github.com/jameynakama/whatnow/internal/connector"
 	"github.com/jameynakama/whatnow/internal/host"
 	"github.com/jameynakama/whatnow/internal/httpapi"
 	"github.com/jameynakama/whatnow/internal/secrets"
@@ -108,6 +109,10 @@ func newServer(a *app.App, addr string) *http.Server {
 }
 
 func apiHandler(a *app.App, hosted bool) http.Handler {
+	var conn http.Handler
+	if hosted {
+		conn = connector.Handler(connector.Deps{Service: a.Service, Hub: a.Hub, Planner: a.Planner, Loc: a.Loc, Now: a.Now})
+	}
 	return httpapi.New(httpapi.Deps{
 		Service:      a.Service,
 		Hub:          a.Hub,
@@ -123,6 +128,7 @@ func apiHandler(a *app.App, hosted bool) http.Handler {
 		Integrations: a.Integrations,
 		Static:       web.Handler(),
 		Hosted:       hosted,
+		Connector:    conn,
 	})
 }
 
