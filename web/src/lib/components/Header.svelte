@@ -90,6 +90,7 @@
 			<nav class="sticker menu">
 				<a class="item" href="/" onclick={() => (menuOpen = false)}>Today</a>
 				<a class="item" href="/tasks" onclick={() => (menuOpen = false)}>All tasks</a>
+				<a class="item" href="/ideas" onclick={() => (menuOpen = false)}>Ideas</a>
 				{#if canWrap}<a class="item" href="/wrap" onclick={() => (menuOpen = false)}>Wrap up early</a>{/if}
 				<a class="item" href="/settings" onclick={() => (menuOpen = false)}>Settings</a>
 			</nav>

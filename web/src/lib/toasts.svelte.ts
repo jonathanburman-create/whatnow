@@ -140,9 +140,18 @@ export function cleanupText(activity: BatchApplied['activity']): string {
 		activity.filter((a) => a.action === action && a.entity === entity).length;
 	const tasks = n('create', 'task') + n('update', 'task');
 	const events = n('create', 'event');
-	if (tasks === 0 && events > 0) return `Turned your note into ${count(events, 'event')}`;
-	if (tasks <= 1 && events === 0) return 'Tidied up your note';
-	return `Split your note into ${count(tasks, 'task')}${events ? ` and ${count(events, 'event')}` : ''}`;
+	const ideas = n('create', 'idea');
+	const rest: string[] = [];
+	if (events) rest.push(count(events, 'event'));
+	if (ideas) rest.push(count(ideas, 'idea'));
+	if (tasks === 0 && rest.length) return `Turned your note into ${listed(rest)}`;
+	if (tasks <= 1 && !rest.length) return 'Tidied up your note';
+	return `Split your note into ${listed([count(tasks, 'task'), ...rest])}`;
+}
+
+/** Joins phrases as "a", "a and b", or "a, b and c". */
+function listed(parts: string[]): string {
+	return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : (parts[0] ?? '');
 }
 
 export const toasts = new Toasts();

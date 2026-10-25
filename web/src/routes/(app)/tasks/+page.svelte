@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import AreaFilter from '#lib/components/AreaFilter.svelte';
 	import Header from '#lib/components/Header.svelte';
 	import TaskCard from '#lib/components/TaskCard.svelte';
-	import { areas, inArea, parseArea, type Area } from '#lib/areas.ts';
+	import { inArea, parseArea } from '#lib/areas.ts';
 	import { editor } from '#lib/editor.svelte.ts';
 	import { filters, listTasks, type Filter } from '#lib/tasks.ts';
 	import { today } from '#lib/today.svelte.ts';
@@ -14,31 +14,11 @@
 	const area = $derived(parseArea(page.url.searchParams.get('area')));
 	const t = $derived(today.today);
 	const shown = $derived(t ? inArea(listTasks(today.tasks, today.blockers, filter, t.date), area) : []);
-
-	function pickArea(id: Area | '') {
-		goto(id ? `?area=${id}` : '?', { replace: true, reset: false });
-	}
 </script>
 
 {#if t}
 	<Header today={t} />
-	<div class="chips areas" role="tablist" aria-label="Filter by area">
-		<button class="chip" class:on={area === ''} role="tab" aria-selected={area === ''} onclick={() => pickArea('')}>
-			All areas
-		</button>
-		{#each areas as a (a.id)}
-			<button
-				class="chip area"
-				class:on={area === a.id}
-				role="tab"
-				aria-selected={area === a.id}
-				style:--area={a.color}
-				onclick={() => pickArea(a.id)}
-			>
-				{a.label}
-			</button>
-		{/each}
-	</div>
+	<AreaFilter {area} />
 	<div class="chips" role="tablist" aria-label="Filter tasks">
 		{#each filters as f (f.id)}
 			<button
@@ -73,39 +53,11 @@
 		flex-wrap: wrap;
 		gap: 8px;
 	}
-	.areas {
-		margin-bottom: 8px;
-	}
-	/* On a narrow screen the areas sit in one row that scrolls sideways, so the list starts higher up. */
-	@media (max-width: 800px) {
-		.areas {
-			flex-wrap: nowrap;
-			overflow-x: auto;
-			scrollbar-width: none;
-			margin-inline: -12px;
-			padding: 2px 12px 4px;
-		}
-		.areas .chip {
-			flex: none;
-		}
-	}
 	.chip {
 		background: var(--card);
 		cursor: pointer;
 	}
 	.chip.on {
 		background: var(--chip);
-	}
-	.chip.area {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-	}
-	.chip.area::before {
-		content: '';
-		width: 9px;
-		height: 9px;
-		border-radius: 50%;
-		background: var(--area);
 	}
 </style>

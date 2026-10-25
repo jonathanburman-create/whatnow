@@ -48,6 +48,24 @@ export interface TaskFields {
 	refs: Ref[];
 }
 
+/** A thought worth keeping that isn't a task. Ideas never enter the plan. */
+export interface Idea {
+	id: number;
+	title: string;
+	notes: string;
+	area: Area | null;
+	raw_text: string;
+	created_at: string;
+	updated_at: string;
+}
+
+/** What an idea write sends. Every field is sent; null clears the area. */
+export interface IdeaFields {
+	title: string;
+	notes: string;
+	area: Area | null;
+}
+
 /** TaskID can't start until BlockedByID is finished. */
 export interface Blocker {
 	task_id: number;
@@ -357,6 +375,12 @@ export const api = {
 	replan: () => request<Plan>('POST', '/today/replan'),
 	updateTask: (id: number, fields: TaskFields) => request<Mutation>('PUT', `/tasks/${id}`, fields),
 	blockers: () => request<Blocker[]>('GET', '/blockers'),
+	ideas: () => request<Idea[]>('GET', '/ideas'),
+	createIdea: (fields: IdeaFields) => request<Mutation & { data: Idea }>('POST', '/ideas', fields),
+	updateIdea: (id: number, fields: IdeaFields) => request<Mutation>('PUT', `/ideas/${id}`, fields),
+	deleteIdea: (id: number) => request<Mutation>('DELETE', `/ideas/${id}`),
+	/** Makes an open task from an idea and takes the idea off the pile. */
+	ideaToTask: (id: number) => request<Mutation & { data: Task }>('POST', `/ideas/${id}/task`),
 	addBlocker: (id: number, blocked_by_id: number) =>
 		request<Mutation>('POST', `/tasks/${id}/blockers`, { blocked_by_id }),
 	removeBlocker: (id: number, blockedBy: number) =>

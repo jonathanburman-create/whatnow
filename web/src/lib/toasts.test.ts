@@ -112,6 +112,9 @@ describe('cleanupText', () => {
 		['split into tasks', [act('update', 'task'), act('create', 'task'), act('create', 'task')], 'Split your note into 3 tasks'],
 		['split into tasks and an event', [act('update', 'task'), act('create', 'task'), act('create', 'event')], 'Split your note into 2 tasks and 1 event'],
 		['turned the note into events', [act('delete', 'task'), act('create', 'event'), act('create', 'event')], 'Turned your note into 2 events'],
+		['split into a task and ideas', [act('update', 'task'), act('create', 'idea'), act('create', 'idea')], 'Split your note into 1 task and 2 ideas'],
+		['split into tasks, an event and an idea', [act('update', 'task'), act('create', 'task'), act('create', 'event'), act('create', 'idea')], 'Split your note into 2 tasks, 1 event and 1 idea'],
+		['turned the note into an idea', [act('delete', 'task'), act('create', 'idea')], 'Turned your note into 1 idea'],
 		['blockers alone add nothing to say', [act('update', 'task'), act('add', 'blocker')], 'Tidied up your note']
 	])('Should say what cleanup did when it %s', (_, activity, want) => {
 		expect(cleanupText(activity)).toBe(want);

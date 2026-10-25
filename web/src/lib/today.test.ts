@@ -16,6 +16,7 @@ describe('TodayState', () => {
 		const events = vi.spyOn(api, 'events').mockResolvedValue([]);
 		vi.spyOn(api, 'tasks').mockResolvedValue([]);
 		vi.spyOn(api, 'blockers').mockResolvedValue([]);
+		vi.spyOn(api, 'ideas').mockResolvedValue([]);
 		await new TodayState().refresh();
 		expect(events).toHaveBeenCalledWith('2026-10-05');
 	});
@@ -25,6 +26,7 @@ describe('TodayState', () => {
 		vi.spyOn(api, 'events').mockResolvedValue([]);
 		vi.spyOn(api, 'tasks').mockResolvedValue([]);
 		vi.spyOn(api, 'blockers').mockResolvedValue([]);
+		vi.spyOn(api, 'ideas').mockResolvedValue([]);
 		const t = new TodayState();
 		t.changed();
 		t.changed();
@@ -32,13 +34,16 @@ describe('TodayState', () => {
 		await vi.advanceTimersByTimeAsync(100);
 		expect(fetched).toHaveBeenCalledTimes(1);
 	});
-	it('Should refresh the blockers with everything else', async () => {
+	it('Should refresh the blockers and ideas with everything else', async () => {
 		vi.spyOn(api, 'today').mockResolvedValue(day);
 		vi.spyOn(api, 'events').mockResolvedValue([]);
 		vi.spyOn(api, 'tasks').mockResolvedValue([]);
 		vi.spyOn(api, 'blockers').mockResolvedValue([{ task_id: 2, blocked_by_id: 1 }]);
+		const idea = { id: 7, title: 'Essay on luck', notes: '', area: null, raw_text: '', created_at: '', updated_at: '' };
+		vi.spyOn(api, 'ideas').mockResolvedValue([idea]);
 		const t = new TodayState();
 		await t.refresh();
 		expect(t.blockers).toEqual([{ task_id: 2, blocked_by_id: 1 }]);
+		expect(t.ideas).toEqual([idea]);
 	});
 });
