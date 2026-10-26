@@ -80,3 +80,44 @@ func TestReplanReasons(t *testing.T) {
 		})
 	}
 }
+
+func TestPlanChanges(t *testing.T) {
+	const today = domain.Date("2026-10-05")
+	d := func(s string) *domain.Date { v := domain.Date(s); return &v }
+	task := func(id int64, mutate func(*domain.Task)) domain.Task {
+		t := domain.Task{ID: id, Title: "t", Status: domain.StatusOpen}
+		if mutate != nil {
+			mutate(&t)
+		}
+		return t
+	}
+	done := func(t *domain.Task) { t.Status = domain.StatusDone }
+	dropped := func(t *domain.Task) { t.Status = domain.StatusDropped }
+	gone := func(t *domain.Task) { deleted := time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC); t.DeletedAt = &deleted }
+	pushed := func(t *domain.Task) { t.NotBefore = d("2026-10-07") }
+	planned := map[int64]bool{1: true}
+
+	cases := []struct {
+		name    string
+		act     domain.Activity
+		undone  bool
+		changes []string
+	}{
+		{"finished", act("task", 1, task(1, nil), task(1, done)), false, []string{`#1 "t" was finished`}},
+		{"dropped", act("task", 1, task(1, nil), task(1, dropped)), false, []string{`#1 "t" was dropped`}},
+		{"deleted", act("task", 1, task(1, nil), task(1, gone)), false, []string{`#1 "t" was deleted`}},
+		{"pushed past today", act("task", 1, task(1, nil), task(1, pushed)), false, []string{`#1 "t" was pushed past today`}},
+		{"undoing a finish", act("task", 1, task(1, nil), task(1, done)), true, []string{`#1 "t" is back on today's list`}},
+		{"reopened", act("task", 1, task(1, done), task(1, nil)), false, []string{`#1 "t" is back on today's list`}},
+		{"renamed", act("task", 1, task(1, nil), task(1, func(t *domain.Task) { t.Title = "u" })), false, nil},
+		{"not planned", act("task", 2, task(2, nil), task(2, done)), false, nil},
+		{"not a task", act("day", 1, nil, nil), false, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if diff := cmp.Diff(c.changes, planChanges([]domain.Activity{c.act}, planned, today, c.undone)); diff != "" {
+				t.Errorf("changes (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

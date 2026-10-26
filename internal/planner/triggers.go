@@ -15,7 +15,9 @@ import (
 
 // Run replans today whenever a change calls for it, until ctx is done or msgs closes. msgs is a
 // hub subscription, so changes from the API, cleanup, and the agent are all seen, and so are
-// undos. Changes that pile up while a replan runs are folded into one more replan.
+// undos. Changes that pile up while a replan runs are folded into one more replan. A change that
+// doesn't call for a replan but leaves the plan's words stale, such as a planned task finished,
+// refreshes the note and the cards' lines instead, keeping every task in its tier.
 func (p *Planner) Run(ctx context.Context, msgs <-chan stream.Message) {
 	for {
 		select {
@@ -25,35 +27,42 @@ func (p *Planner) Run(ctx context.Context, msgs <-chan stream.Message) {
 			if !ok {
 				return
 			}
-			trigger, reasons := p.reasons(ctx, m)
+			trigger, reasons, changes := p.reasons(ctx, m)
 			for more := true; more; {
 				select {
 				case m, ok := <-msgs:
 					if !ok {
 						return
 					}
-					t, r := p.reasons(ctx, m)
+					t, r, c := p.reasons(ctx, m)
 					if t == domain.TriggerPace {
 						trigger = t
 					}
 					reasons = append(reasons, r...)
+					changes = append(changes, c...)
 				default:
 					more = false
 				}
 			}
-			if len(reasons) == 0 {
-				continue
-			}
-			if _, err := p.Replan(ctx, trigger, strings.Join(reasons, "; ")); err != nil && !errors.Is(err, ErrNoDay) {
-				log.Printf("replan: %v", err)
+			switch {
+			case len(reasons) > 0:
+				// A replan writes a new note and new lines anyway.
+				if _, err := p.Replan(ctx, trigger, strings.Join(reasons, "; ")); err != nil && !errors.Is(err, ErrNoDay) {
+					log.Printf("replan: %v", err)
+				}
+			case len(changes) > 0:
+				if _, _, err := p.Refresh(ctx, strings.Join(changes, "; ")); err != nil && !quietRefresh(err) {
+					log.Printf("refresh the plan's words: %v", err)
+				}
 			}
 		}
 	}
 }
 
-// reasons says why one hub message calls for a replan. Only a day that has a plan and isn't
-// wrapped up is replanned; before that, the morning makes the first plan.
-func (p *Planner) reasons(ctx context.Context, m stream.Message) (domain.Trigger, []string) {
+// reasons says why one hub message calls for a replan, and which planned tasks it took off or put
+// back on today's list. Only a day that has a plan and isn't wrapped up is replanned or refreshed;
+// before that, the morning makes the first plan.
+func (p *Planner) reasons(ctx context.Context, m stream.Message) (domain.Trigger, []string, []string) {
 	var acts []domain.Activity
 	undone := false
 	switch d := m.Data.(type) {
@@ -63,28 +72,76 @@ func (p *Planner) reasons(ctx context.Context, m stream.Message) (domain.Trigger
 		var err error
 		if acts, err = p.svc.BatchActivity(ctx, d.BatchID); err != nil {
 			log.Printf("replan: read undone batch %d: %v", d.BatchID, err)
-			return "", nil
+			return "", nil, nil
 		}
 		undone = true
 	default:
-		return "", nil
+		return "", nil, nil
 	}
 	today := facts.Today(p.now(), p.loc)
 	day, err := p.svc.GetDay(ctx, today)
 	if err != nil || day.WrappedAt != nil {
-		return "", nil
+		return "", nil, nil
 	}
 	plan, err := p.svc.LatestPlan(ctx, day.ID)
 	if err != nil {
-		return "", nil
+		return "", nil, nil
 	}
-	musts := map[int64]bool{}
+	musts, planned := map[int64]bool{}, map[int64]bool{}
 	for _, e := range plan.Entries {
+		planned[e.TaskID] = true
 		if e.Tier == domain.TierMust {
 			musts[e.TaskID] = true
 		}
 	}
-	return replanReasons(acts, musts, today, undone)
+	trigger, reasons := replanReasons(acts, musts, today, undone)
+	return trigger, reasons, planChanges(acts, planned, today, undone)
+}
+
+// planChanges lists the planned tasks a batch took off today's list or put back on it: finished,
+// dropped, deleted, pushed past today, or open again. Each leaves the plan's words out of date,
+// such as a note that says "after the quiz" once the quiz is done. undone runs the batch backward.
+func planChanges(acts []domain.Activity, planned map[int64]bool, today domain.Date, undone bool) []string {
+	var changes []string
+	for _, a := range acts {
+		if a.Entity != "task" || !planned[a.EntityID] {
+			continue
+		}
+		before, after := a.Before, a.After
+		if undone {
+			before, after = after, before
+		}
+		var b, af domain.Task
+		hadB, hadA := decode(before, &b), decode(after, &af)
+		wasOn, isOn := hadB && onToday(b, today), hadA && onToday(af, today)
+		if wasOn == isOn {
+			continue
+		}
+		t := af
+		if !hadA {
+			t = b
+		}
+		var what string
+		switch {
+		case isOn:
+			what = "is back on today's list"
+		case !hadA || af.DeletedAt != nil:
+			what = "was deleted"
+		case af.Status == domain.StatusDone:
+			what = "was finished"
+		case af.Status == domain.StatusDropped:
+			what = "was dropped"
+		default:
+			what = "was pushed past today"
+		}
+		changes = append(changes, fmt.Sprintf("#%d %q %s", t.ID, t.Title, what))
+	}
+	return changes
+}
+
+// onToday is whether a task still shows on today's plan: open, and not put off past today.
+func onToday(t domain.Task, today domain.Date) bool {
+	return live(t) && (t.NotBefore == nil || *t.NotBefore <= today)
 }
 
 // replanReasons lists what in a batch calls for a replan: a pace change, a task becoming due

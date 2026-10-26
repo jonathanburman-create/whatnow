@@ -21,6 +21,7 @@ const (
 	Sentence   = "A fake summary."
 	ChatReply  = "A fake reply. Nothing changed."
 	Reflection = "A fake reflection, to you."
+	Refreshed  = "A fake plan, brought up to date."
 )
 
 // Client answers Complete by the request's schema name, and Chat with ChatReply.
@@ -41,6 +42,9 @@ func (Client) Complete(_ context.Context, req llm.Request) (string, error) {
 		reply = pick(eligible(system(req.System)), req.User)
 	case "suggestions":
 		reply = suggestions(req.User)
+	case "plan_refresh":
+		// Only the note changes; every card's line still reads true.
+		reply = map[string]any{"entries": []any{}, "opening": Refreshed}
 	default:
 		if strings.Contains(system(req.System), reflectionMarker) {
 			return Reflection, nil

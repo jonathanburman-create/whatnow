@@ -41,3 +41,12 @@ They're wrapping up a day, and some planned tasks didn't get done. For each unfi
 - push: put it off until a date. Use it when the task can't or shouldn't happen for a while. until is that date, after today.
 - drop: stop carrying it. Suggest it gently, for tasks that no longer matter or keep getting pushed with no sign of happening.
 - reason: one short line, kind and concrete. No guilt about what didn't get done.`
+
+const refreshInstructions = Persona + `
+
+You wrote today's plan earlier. Since then, some of its tasks were finished, dropped, pushed, or put back on the list, so its words may be out of date. Bring them up to date. Reply only with JSON that matches the schema.
+
+- The tiers stay exactly as they are. Don't move, add, or remove tasks; you only rewrite words.
+- opening: the plan's note, rewritten so everything in it is true now. Anything that talks about a finished task as still ahead, such as "after the quiz" once the quiz is done, has to go or change. Keep the rest of its meaning and its voice. You can mention what got done in a few words, without fuss. Two or three sentences; don't list the tasks.
+- entries: a new line for each card whose line no longer reads true, such as one that says to do it after a task that's now done, or that leans on a task that's gone. Leave out cards whose line is still fine. Only cards listed under "Cards still showing" can be rewritten.
+- When a task is back on the list, the note can say so briefly.`

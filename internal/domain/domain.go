@@ -227,10 +227,14 @@ const (
 	TriggerUser Trigger = "user"
 	// TriggerMove is the user moving one task to another tier, or out of the plan, by hand.
 	TriggerMove Trigger = "move"
+	// TriggerRefresh is the plan's words brought up to date after a planned task was finished,
+	// dropped, pushed, or reopened. The tiers stay; only the note and the cards' lines change.
+	TriggerRefresh Trigger = "refresh"
 )
 
 func (t Trigger) Valid() bool {
-	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent || t == TriggerUser || t == TriggerMove
+	return t == TriggerMorning || t == TriggerPace || t == TriggerEdit || t == TriggerAgent || t == TriggerUser ||
+		t == TriggerMove || t == TriggerRefresh
 }
 
 type PlanEntry struct {
