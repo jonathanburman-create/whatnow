@@ -142,3 +142,52 @@ func TestCaptureFromAShortcut(t *testing.T) {
 		t.Errorf("capture url = %q", v.CaptureURL)
 	}
 }
+
+func askRequest(t *testing.T, key, text string) *http.Request {
+	t.Helper()
+	b, err := json.Marshal(map[string]string{"text": text})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/ask", bytes.NewReader(b))
+	req.Host = "whatnow.test"
+	req.Header.Set("Content-Type", "application/json")
+	if key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	return req
+}
+
+func TestAskFromAShortcut(t *testing.T) {
+	f := newFrontTest(t)
+	_, c := f.signIn("a")
+	key := f.createConnectorKey(c)
+
+	// No provider is set up in these tests, so the reply says so, in plain text a notification can show.
+	rec := f.serve(askRequest(t, key, "what's next?"))
+	f.want(rec, http.StatusOK)
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Errorf("content type = %q", ct)
+	}
+	if got := rec.Body.String(); !strings.Contains(got, "No AI provider is set up yet") {
+		t.Errorf("reply = %q", got)
+	}
+
+	// Both the question and the reply are in the app's chat.
+	history := decodeBody[[]domain.Message](t, f.do(http.MethodGet, "/api/v1/chat", c, nil))
+	if len(history) != 2 || history[0].Text != "what's next?" || history[0].Role != domain.RoleUser || history[1].Role != domain.RoleAssistant {
+		t.Errorf("history = %+v", history)
+	}
+
+	f.want(f.serve(askRequest(t, "", "x")), http.StatusUnauthorized)
+	f.want(f.serve(askRequest(t, "wnc_nope", "x")), http.StatusUnauthorized)
+	push := f.createKey(c)
+	f.want(f.serve(askRequest(t, push, "x")), http.StatusUnauthorized)
+
+	v := decodeBody[struct {
+		AskURL string `json:"ask_url"`
+	}](t, f.do(http.MethodGet, "/api/v1/connector/key", c, nil))
+	if v.AskURL != publicURL+"/ask" {
+		t.Errorf("ask url = %q", v.AskURL)
+	}
+}

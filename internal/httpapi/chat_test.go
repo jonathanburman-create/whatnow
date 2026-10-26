@@ -3,6 +3,7 @@ package httpapi_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/jameynakama/whatnow/internal/domain"
@@ -74,5 +75,38 @@ func TestChatFinishesAfterTheClientLeaves(t *testing.T) {
 	wantStatus(t, rec, http.StatusOK)
 	if reply := decodeAs[domain.Message](t, rec); reply.Text != "Nothing open." || reply.Error != "" {
 		t.Errorf("reply = %+v", reply)
+	}
+}
+
+func TestAskAnswersInPlainText(t *testing.T) {
+	api := newAPI(t)
+	api.model = &chatModel{
+		call: llm.ToolCall{ID: "c1", Name: "list_tasks", Input: []byte(`{"status":"open"}`)},
+		text: "Nothing open. Enjoy it.",
+	}
+
+	rec := api.do(http.MethodPost, "/api/v1/ask", map[string]string{"text": "anything open?"})
+	wantStatus(t, rec, http.StatusOK)
+	if ct := rec.Header().Get("Content-Type"); ct != "text/plain; charset=utf-8" {
+		t.Errorf("content type = %q", ct)
+	}
+	if got := rec.Body.String(); got != "Nothing open. Enjoy it." {
+		t.Errorf("body = %q", got)
+	}
+	// It's an ordinary chat turn: both messages show in the app.
+	history := decodeAs[[]domain.Message](t, api.do(http.MethodGet, "/api/v1/chat", nil))
+	if len(history) != 2 || history[0].Text != "anything open?" || history[1].Text != "Nothing open. Enjoy it." {
+		t.Errorf("history = %+v", history)
+	}
+
+	rec = api.do(http.MethodPost, "/api/v1/ask", map[string]string{"text": "  "})
+	wantStatus(t, rec, http.StatusBadRequest)
+	if got := rec.Body.String(); got != "the message is empty" {
+		t.Errorf("empty message body = %q", got)
+	}
+	rec = api.do(http.MethodPost, "/api/v1/ask", map[string]string{"raw_text": "x"})
+	wantStatus(t, rec, http.StatusBadRequest)
+	if got := rec.Body.String(); !strings.Contains(got, `{"text": "your message"}`) {
+		t.Errorf("wrong field body = %q", got)
 	}
 }

@@ -20,6 +20,10 @@ const connectorPath = "/mcp"
 // key. The note lands in the inbox as raw text, as if typed into the app.
 const capturePath = "/capture"
 
+// askPath sends a message to the app's chat with the same key and answers with the reply as plain
+// text, so a Shortcut can show it as a notification. Both land in the app's chat.
+const askPath = "/ask"
+
 // ErrNoConnectorKey means the connector key is unknown, replaced, or revoked.
 var ErrNoConnectorKey = errors.New("host: no such connector key")
 
@@ -103,7 +107,8 @@ func (f *frontDoor) connectorKey(w http.ResponseWriter, r *http.Request, u User)
 		Key        *ConnectorKey `json:"key"`
 		URL        string        `json:"url"`
 		CaptureURL string        `json:"capture_url"`
-	}{k, f.origin + connectorPath, f.origin + capturePath})
+		AskURL     string        `json:"ask_url"`
+	}{k, f.origin + connectorPath, f.origin + capturePath, f.origin + askPath})
 }
 
 func (f *frontDoor) createConnectorKey(w http.ResponseWriter, r *http.Request, u User) {
@@ -144,6 +149,19 @@ func (f *frontDoor) capture(w http.ResponseWriter, r *http.Request) {
 	}
 	fwd := r.Clone(r.Context())
 	fwd.URL.Path = "/api/v1/tasks"
+	fwd.URL.RawPath = ""
+	f.registry.Serve(w, fwd, u.ID)
+}
+
+// ask hands a message sent with the connector key to the key's user's chat, and answers with the
+// reply's text. Its body is {"text": "..."}, the same as chatting in the app.
+func (f *frontDoor) ask(w http.ResponseWriter, r *http.Request) {
+	u, ok := f.keyUser(w, r)
+	if !ok {
+		return
+	}
+	fwd := r.Clone(r.Context())
+	fwd.URL.Path = "/api/v1/ask"
 	fwd.URL.RawPath = ""
 	f.registry.Serve(w, fwd, u.ID)
 }

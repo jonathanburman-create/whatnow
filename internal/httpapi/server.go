@@ -100,6 +100,7 @@ func New(d Deps) http.Handler {
 	mux.HandleFunc("POST /api/v1/whatnow", s.whatNow)
 	mux.HandleFunc("GET /api/v1/chat", s.chatHistory)
 	mux.HandleFunc("POST /api/v1/chat", s.chat)
+	mux.HandleFunc("POST /api/v1/ask", s.ask)
 	mux.HandleFunc("GET /api/v1/stream", s.stream)
 	mux.HandleFunc("GET /api/v1/settings", s.getSettings)
 	mux.HandleFunc("PUT /api/v1/settings", s.putSettings)
