@@ -83,6 +83,9 @@ test('wrap-up suggests rolling over what is left, and wraps the day', async ({ p
 test('the end-of-day label stays inside the strip on a phone', async ({ page, request }) => {
 	const view = await (await request.get('/api/v1/settings')).json();
 	await request.put('/api/v1/settings', { data: { ...view.settings, end_of_day: '23:59' } });
+	// A phone shows the strip only on a day with events.
+	const startsAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+	await request.post('/api/v1/events', { data: { title: 'Dentist', starts_at: startsAt, ends_at: null, raw_text: '' } });
 	await page.setViewportSize({ width: 375, height: 800 });
 	await page.goto('/');
 

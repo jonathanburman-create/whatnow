@@ -143,10 +143,14 @@
 		background: var(--now);
 		z-index: 1;
 	}
+	/* Sits over the now line, so the line runs behind the words instead of through them. */
 	.empty {
 		position: absolute;
 		left: 16px;
 		top: 13px;
+		z-index: 2;
+		padding: 0 4px;
+		background: var(--card);
 		font-size: 14px;
 	}
 </style>

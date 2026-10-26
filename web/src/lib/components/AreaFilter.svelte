@@ -62,8 +62,8 @@
 			flex-wrap: nowrap;
 			overflow-x: auto;
 			scrollbar-width: none;
-			margin-inline: -12px;
-			padding: 2px 12px 4px;
+			margin-inline: -10px;
+			padding: 2px 10px 4px;
 		}
 		.chip {
 			flex: none;

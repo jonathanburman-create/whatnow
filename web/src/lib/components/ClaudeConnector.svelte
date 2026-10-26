@@ -8,6 +8,7 @@
 	let url = $state('');
 	let captureURL = $state('');
 	let askURL = $state('');
+	let glanceURL = $state('');
 	/** A key just made, shown this once. */
 	let newKey = $state('');
 	let loaded = $state(false);
@@ -19,6 +20,7 @@
 				url = r.url;
 				captureURL = r.capture_url;
 				askURL = r.ask_url;
+				glanceURL = r.glance_url;
 				loaded = true;
 			},
 			(err) => toasts.error(err)
@@ -76,6 +78,13 @@
 		<div class="row">
 			<code class="shown">{askURL}</code>
 			<button type="button" class="btn small" onclick={() => copy(askURL)}>Copy</button>
+		</div>
+		<p class="muted hint">
+			For a quick look at your day with no AI involved, a Shortcut can get this address with the same key:
+		</p>
+		<div class="row">
+			<code class="shown">{glanceURL}</code>
+			<button type="button" class="btn small" onclick={() => copy(glanceURL)}>Copy</button>
 		</div>
 		{#if newKey}
 			<p class="hint">Your key. Copy it now: it won't be shown again.</p>

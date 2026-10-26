@@ -97,6 +97,12 @@
 		padding: 24px 0;
 	}
 	@media (max-width: 800px) {
+		.intro {
+			padding: 10px 12px;
+		}
+		.intro p {
+			display: none;
+		}
 		.add {
 			flex-wrap: wrap;
 		}

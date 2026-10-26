@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type ToolUse } from '#lib/api.ts';
-	import { chat } from '#lib/chat.svelte.ts';
+	import { chat, chatOpenKey } from '#lib/chat.svelte.ts';
 	import { toasts } from '#lib/toasts.svelte.ts';
 
 	interface Props {
@@ -10,7 +10,6 @@
 	}
 	let { opening }: Props = $props();
 
-	const storageKey = 'whatnow.chat.open';
 	let text = $state('');
 	let log: HTMLElement | undefined = $state();
 
@@ -19,21 +18,14 @@
 	onMount(() => {
 		let saved: string | null = null;
 		try {
-			saved = localStorage.getItem(storageKey);
+			saved = localStorage.getItem(chatOpenKey);
 		} catch {
 			// Storage can be blocked; fall back to the screen size.
 		}
 		chat.open = saved === null ? !matchMedia('(max-width: 800px)').matches : saved === 'true';
 	});
 
-	function toggle() {
-		chat.toggle();
-		try {
-			localStorage.setItem(storageKey, String(chat.open));
-		} catch {
-			// Not remembering is fine.
-		}
-	}
+	const toggle = () => chat.toggleRemembered();
 
 	$effect(() => {
 		// Follow the conversation as it grows.
@@ -65,7 +57,9 @@
 	<aside class="sticker dock">
 		<header>
 			<span class="label">Chat</span>
-			<button class="collapse" aria-label="Collapse chat" onclick={toggle}>⟩</button>
+			<button class="collapse" aria-label="Collapse chat" onclick={toggle}
+				><span class="wide">⟩</span><span class="phone">✕</span></button
+			>
 		</header>
 		<div class="log" bind:this={log}>
 			{#if opening}
@@ -213,7 +207,11 @@
 		border: 2px solid var(--ink);
 	}
 
-	/* Narrow screens: the dock is a bottom sheet, and the tab is a bar along the bottom. */
+	.phone {
+		display: none;
+	}
+
+	/* Narrow screens: the dock is a bottom sheet, opened from the tab bar's Chat button. */
 	@media (max-width: 800px) {
 		.dock {
 			position: fixed;
@@ -226,13 +224,12 @@
 			border-radius: var(--radius) var(--radius) 0 0;
 			z-index: 20;
 		}
-		.tab {
-			top: auto;
-			bottom: 0;
-			left: 0;
-			right: 0;
-			writing-mode: horizontal-tb;
-			border-radius: var(--radius) var(--radius) 0 0;
+		.tab,
+		.wide {
+			display: none;
+		}
+		.phone {
+			display: inline;
 		}
 	}
 </style>

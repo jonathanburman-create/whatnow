@@ -72,6 +72,7 @@
 	class="sticker card {tier ?? (listed ? 'listed' : 'unplanned')}"
 	class:closed={task.status !== 'open'}
 	class:linked={linked.ids.includes(task.id)}
+	class:expanded
 >
 	{#if task.status === 'open'}
 		<input type="checkbox" aria-label="Mark done" onchange={complete} />
@@ -87,13 +88,15 @@
 		<button
 			class="body"
 			onclick={() => (listed ? editor.open(task.id) : (expanded = !expanded))}
-			disabled={!listed && !card.rationale && !task.notes}
+			disabled={!listed && !card.rationale && !task.notes && !task.feeling && !task.size && !task.energy && !area}
 			aria-expanded={listed ? undefined : expanded}
 		>
-			<span class="title">{task.title}</span>
+			<span class="title"
+				>{#if area}<span class="dot" style:--area={area.color} aria-hidden="true"></span>{/if}{task.title}</span
+			>
 			<span class="badges">
-				{#if task.size}<span class="badge">{task.size}</span>{/if}
-				{#if task.energy}<span class="badge">{task.energy} energy</span>{/if}
+				{#if task.size}<span class="badge extra">{task.size}</span>{/if}
+				{#if task.energy}<span class="badge extra">{task.energy} energy</span>{/if}
 				{#if listed && task.due_on}<span class="badge">due {short(task.due_on)}</span>{/if}
 				{#if listed && task.not_before}<span class="badge">from {short(task.not_before)}</span>{/if}
 			</span>
@@ -341,5 +344,53 @@
 		display: block;
 		width: 100%;
 		padding-left: 20px;
+	}
+	.dot {
+		display: none;
+	}
+	.badges:empty {
+		display: none;
+	}
+
+	/* Phones: one line per task, its area a dot by the title. A tap opens the rest: area, size,
+	   notes, and why it's in its tier. All tasks keeps its due dates showing, since that list is
+	   for scanning. */
+	@media (max-width: 800px) {
+		.card {
+			align-items: center;
+			padding: 7px 10px;
+			margin-bottom: 6px;
+			box-shadow: var(--shadow-sm);
+		}
+		.card.expanded {
+			align-items: flex-start;
+		}
+		.card.expanded .dot {
+			display: none;
+		}
+		.main {
+			gap: 2px;
+		}
+		.dot {
+			display: inline-block;
+			width: 8px;
+			height: 8px;
+			margin: 0 7px 1px 0;
+			border-radius: 50%;
+			background: var(--area);
+			vertical-align: middle;
+		}
+		.card:not(.expanded) .area,
+		.card:not(.expanded) .extra,
+		.card:not(.expanded) .feeling,
+		.card:not(.expanded) .notes {
+			display: none;
+		}
+		.card:not(.expanded) .badges:not(:has(:not(.extra))) {
+			display: none;
+		}
+		.card:hover .why:not(.shown) {
+			display: none;
+		}
 	}
 </style>

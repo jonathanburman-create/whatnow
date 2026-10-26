@@ -22,13 +22,11 @@
 	const next = $derived(countdown(todayState.events, live.now));
 	const wrapped = $derived(today.day?.wrapped_at != null);
 	const canWrap = $derived(today.day !== null && !wrapped);
-	const date = $derived(
-		new Date(`${today.date}T12:00:00`).toLocaleDateString(undefined, {
-			weekday: 'long',
-			month: 'short',
-			day: 'numeric'
-		})
-	);
+	const dateFor = (weekday: 'long' | 'short') =>
+		new Date(`${today.date}T12:00:00`).toLocaleDateString(undefined, { weekday, month: 'short', day: 'numeric' });
+	const date = $derived(dateFor('long'));
+	// Phones get the short form, so the date, pace, and What now? fit on one line.
+	const shortDate = $derived(dateFor('short'));
 
 	async function signOut() {
 		try {
@@ -47,10 +45,10 @@
 
 <header class="sticker">
 	<div class="left">
-		<h1>{date}</h1>
+		<h1><span class="wide">{date}</span><span class="phone">{shortDate}</span></h1>
 		{#if today.day}
 			<details class="pace" bind:open={paceOpen} {@attach dismiss}>
-				<summary class="chip">pace: {paceLabels[today.day.pace - 1]}</summary>
+				<summary class="chip"><span class="wide">{'pace: '}</span>{paceLabels[today.day.pace - 1]}</summary>
 				<div class="sticker menu">
 					{#each paceLabels as label, i (label)}
 						<button class="item" class:current={i + 1 === today.day.pace} onclick={() => setPace(i + 1)}>
@@ -66,7 +64,7 @@
 	</div>
 	<div class="right">
 		{#if next}
-			<span class="next">{next}</span>
+			<span class="next wide">{next}</span>
 		{/if}
 		{#if canWrap && wrapDue(live.now, live.endOfDay)}
 			<a class="btn" href="/wrap">Wrap up</a>
@@ -77,7 +75,7 @@
 			</button>
 		{/if}
 		{#if user}
-			<details class="more" bind:open={accountOpen} {@attach dismiss}>
+			<details class="more wide" bind:open={accountOpen} {@attach dismiss}>
 				<summary class="btn" aria-label="Account">{user.name}</summary>
 				<div class="sticker menu">
 					<a class="item" href="/privacy" onclick={() => (accountOpen = false)}>Privacy</a>
@@ -88,14 +86,22 @@
 		<details class="more" bind:open={menuOpen} {@attach dismiss}>
 			<summary class="btn" aria-label="Menu">⋯</summary>
 			<nav class="sticker menu">
-				<a class="item" href="/" onclick={() => (menuOpen = false)}>Today</a>
-				<a class="item" href="/tasks" onclick={() => (menuOpen = false)}>All tasks</a>
-				<a class="item" href="/ideas" onclick={() => (menuOpen = false)}>Ideas</a>
+				<!-- On a phone the tab bar has the pages, and the account's links move in here. -->
+				<a class="item wide" href="/" onclick={() => (menuOpen = false)}>Today</a>
+				<a class="item wide" href="/tasks" onclick={() => (menuOpen = false)}>All tasks</a>
+				<a class="item wide" href="/ideas" onclick={() => (menuOpen = false)}>Ideas</a>
 				{#if canWrap}<a class="item" href="/wrap" onclick={() => (menuOpen = false)}>Wrap up early</a>{/if}
 				<a class="item" href="/settings" onclick={() => (menuOpen = false)}>Settings</a>
+				{#if user}
+					<a class="item phone" href="/privacy" onclick={() => (menuOpen = false)}>Privacy</a>
+					<button class="item phone" onclick={signOut}>Sign out</button>
+				{/if}
 			</nav>
 		</details>
 	</div>
+	{#if next}
+		<span class="next phone">{next}</span>
+	{/if}
 	{#if live.view && !configured(live.view)}
 		<p class="notice">
 			No model set up yet. Capture works and plans come out rough. <a href="/settings">Set one up</a>
@@ -177,5 +183,43 @@
 		flex-basis: 100%;
 		margin: 0;
 		font-size: 14px;
+	}
+	.phone {
+		display: none;
+	}
+
+	/* Phones: one slim row (short date, pace, What now?, menu), with the next event under it. */
+	@media (max-width: 800px) {
+		header {
+			gap: 6px 8px;
+			padding: 8px 10px;
+		}
+		/* The date never shrinks under the buttons; in the evening, when Wrap up joins them, they
+		   drop to a row of their own. */
+		.left {
+			flex: 1 0 auto;
+			gap: 8px;
+		}
+		.right {
+			margin-left: auto;
+			gap: 8px;
+		}
+		h1 {
+			font-size: 18px;
+			white-space: nowrap;
+		}
+		.wide {
+			display: none;
+		}
+		.phone {
+			display: revert;
+		}
+		.next.phone {
+			flex-basis: 100%;
+			font-size: 13px;
+		}
+		.btn {
+			padding: 5px 10px;
+		}
 	}
 </style>

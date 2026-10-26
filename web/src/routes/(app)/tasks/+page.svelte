@@ -60,4 +60,21 @@
 	.chip.on {
 		background: var(--chip);
 	}
+
+	/* Phones: the filters sit in one row that scrolls sideways, and + Task is the + button. */
+	@media (max-width: 800px) {
+		.chips {
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			scrollbar-width: none;
+			margin-inline: -10px;
+			padding: 2px 10px 4px;
+		}
+		.chip {
+			flex: none;
+		}
+		.add {
+			display: none;
+		}
+	}
 </style>

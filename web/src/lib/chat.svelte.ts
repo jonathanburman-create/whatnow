@@ -6,6 +6,9 @@ export interface Draft {
 	tools: ToolUse[];
 }
 
+/** Where the dock's open or collapsed state is remembered. */
+export const chatOpenKey = 'whatnow.chat.open';
+
 export class Chat {
 	messages = $state<Message[]>([]);
 	draft = $state<Draft | null>(null);
@@ -52,6 +55,16 @@ export class Chat {
 	toggle(): void {
 		this.open = !this.open;
 		if (this.open) this.unread = false;
+	}
+
+	/** Toggles the dock and remembers the choice for the next visit, as the dock and the tab bar both do. */
+	toggleRemembered(): void {
+		this.toggle();
+		try {
+			localStorage.setItem(chatOpenKey, String(this.open));
+		} catch {
+			// Not remembering is fine.
+		}
 	}
 
 	/** Sends a message. Returns false when it wasn't taken, so the input keeps the text. */

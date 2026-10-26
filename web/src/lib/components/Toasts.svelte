@@ -51,6 +51,13 @@
 		z-index: 30;
 		max-width: min(420px, calc(100vw - 32px));
 	}
+	/* On a phone, clear of the tab bar along the bottom. */
+	@media (max-width: 800px) {
+		.stack {
+			left: 10px;
+			bottom: calc(72px + env(safe-area-inset-bottom));
+		}
+	}
 	.toast {
 		display: flex;
 		align-items: center;

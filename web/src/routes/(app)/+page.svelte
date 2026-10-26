@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { api, ApiError, type Pick, type Tier } from '#lib/api.ts';
@@ -24,6 +25,14 @@
 	let replanning = $state(false);
 	/** What now found nothing open and eligible. */
 	let nothing = $state(false);
+	/** Could starts folded on a phone, where the list is long enough already. */
+	let couldOpen = $state(true);
+	/** The plan's note, one line until tapped. */
+	let noteOpen = $state(false);
+
+	onMount(() => {
+		if (matchMedia('(max-width: 800px)').matches) couldOpen = false;
+	});
 
 	const t = $derived(today.today);
 	const planned = $derived(t ? tiers(t, today.tasks) : null);
@@ -77,7 +86,15 @@
 
 {#if t?.plan}
 	<Header today={t} {asking} onwhatnow={() => whatNow()} />
-	<DayStrip events={today.events} now={live.now} endOfDay={live.endOfDay} startedAt={t.day?.started_at ?? null} />
+	{#if t.plan.opening && !t.day?.wrapped_at}
+		<!-- On a phone the chat is tucked away, so the plan's note shows here. -->
+		<button class="note" class:open={noteOpen} aria-expanded={noteOpen} onclick={() => (noteOpen = !noteOpen)}>
+			{t.plan.opening}
+		</button>
+	{/if}
+	<div class="strip" class:quiet={today.events.length === 0}>
+		<DayStrip events={today.events} now={live.now} endOfDay={live.endOfDay} startedAt={t.day?.started_at ?? null} />
+	</div>
 	<div class="add">
 		<Capture />
 		<button class="btn" onclick={() => editor.openNew()}>+ Task</button>
@@ -103,13 +120,25 @@
 			<p class="chip rough">rough plan, model was out</p>
 		{/if}
 		{#each tierNames as tier (tier)}
+			{@const folded = tier === 'could' && !couldOpen && planned.could.length > 0}
 			<section>
-				<h2 class="label">{tier}</h2>
-				{#each planned[tier] as card (card.task.id)}
-					<TaskCard {card} {tier} date={t.date} />
-				{:else}
-					<p class="muted empty">Nothing here.</p>
-				{/each}
+				<h2 class="label">
+					{#if tier === 'could'}
+						<button class="fold" aria-expanded={!folded} onclick={() => (couldOpen = !couldOpen)}>
+							{tier} <span class="count" aria-hidden="true">{planned[tier].length}</span>
+							<span aria-hidden="true">{folded ? '▸' : '▾'}</span>
+						</button>
+					{:else}
+						{tier} <span class="count" aria-hidden="true">{planned[tier].length}</span>
+					{/if}
+				</h2>
+				{#if !folded}
+					{#each planned[tier] as card (card.task.id)}
+						<TaskCard {card} {tier} date={t.date} />
+					{:else}
+						<p class="muted empty">Nothing here.</p>
+					{/each}
+				{/if}
 			</section>
 		{/each}
 	{/if}
@@ -176,22 +205,58 @@
 		align-items: start;
 	}
 
+	.count {
+		opacity: 0.55;
+		margin-left: 2px;
+	}
+	.fold {
+		background: none;
+		border: none;
+		padding: 0;
+		font: inherit;
+		color: inherit;
+		letter-spacing: inherit;
+		text-transform: inherit;
+		cursor: pointer;
+	}
+	.note {
+		display: none;
+	}
+
 	@media (max-width: 800px) {
-		.add {
-		display: flex;
-		gap: 10px;
-		align-items: center;
-	}
-	.add > :global(:first-child) {
-		flex: 1;
-	}
-	.tray-head {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.lower {
+		.lower {
 			grid-template-columns: 1fr;
+		}
+		h2 {
+			margin: 2px 0 6px;
+		}
+		/* The + button above the tab bar captures instead; cleanup's progress line still shows. */
+		.add :global(form),
+		.add > .btn {
+			display: none;
+		}
+		.add:not(:has(> :not(form, .btn))) {
+			display: none;
+		}
+		.strip.quiet {
+			display: none;
+		}
+		.note {
+			display: block;
+			background: none;
+			border: none;
+			border-left: 3px solid var(--primary);
+			padding: 2px 0 2px 10px;
+			text-align: left;
+			font-size: 14px;
+			color: var(--ink-soft);
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+		.note.open {
+			white-space: normal;
+			color: var(--ink);
 		}
 	}
 </style>

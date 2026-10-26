@@ -412,7 +412,13 @@ export const api = {
 	revokePushKey: () => request<void>('DELETE', '/integrations/jira/key'),
 	/** The Claude connector's key as the card shows it, and the address Claude connects to. Hosted only. */
 	connectorKey: () =>
-		request<{ key: PushKey | null; url: string; capture_url: string; ask_url: string }>('GET', '/connector/key'),
+		request<{
+			key: PushKey | null;
+			url: string;
+			capture_url: string;
+			ask_url: string;
+			glance_url: string;
+		}>('GET', '/connector/key'),
 	/** A new connector key, replacing the old one. This is the only time it's shown. */
 	createConnectorKey: () => request<{ key: string }>('POST', '/connector/key'),
 	revokeConnectorKey: () => request<void>('DELETE', '/connector/key'),
