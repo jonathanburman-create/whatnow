@@ -111,6 +111,8 @@ func TestPlanChanges(t *testing.T) {
 		{"reopened", act("task", 1, task(1, done), task(1, nil)), false, []string{`#1 "t" is back on today's list`}},
 		{"renamed", act("task", 1, task(1, nil), task(1, func(t *domain.Task) { t.Title = "u" })), false, nil},
 		{"not planned", act("task", 2, task(2, nil), task(2, done)), false, nil},
+		{"created in the batch", act("task", 1, nil, task(1, nil)), false, nil},
+		{"undoing a create", act("task", 1, nil, task(1, nil)), true, nil},
 		{"not a task", act("day", 1, nil, nil), false, nil},
 	}
 	for _, c := range cases {

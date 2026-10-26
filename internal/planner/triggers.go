@@ -112,20 +112,22 @@ func planChanges(acts []domain.Activity, planned map[int64]bool, today domain.Da
 			before, after = after, before
 		}
 		var b, af domain.Task
-		hadB, hadA := decode(before, &b), decode(after, &af)
-		wasOn, isOn := hadB && onToday(b, today), hadA && onToday(af, today)
+		// A task made in this batch isn't a change to the plan's words: the plan was made with it
+		// in mind, such as the morning's dump being sorted after its plan was saved. Deleting a
+		// task keeps it, marked deleted, so both sides are there for every change that matters.
+		if !decode(before, &b) || !decode(after, &af) {
+			continue
+		}
+		wasOn, isOn := onToday(b, today), onToday(af, today)
 		if wasOn == isOn {
 			continue
 		}
 		t := af
-		if !hadA {
-			t = b
-		}
 		var what string
 		switch {
 		case isOn:
 			what = "is back on today's list"
-		case !hadA || af.DeletedAt != nil:
+		case af.DeletedAt != nil:
 			what = "was deleted"
 		case af.Status == domain.StatusDone:
 			what = "was finished"
