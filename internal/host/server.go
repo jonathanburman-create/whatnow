@@ -88,6 +88,7 @@ func New(cfg Config, accounts *Accounts, registry *Registry) http.Handler {
 	mux.HandleFunc(connectorPath, f.connector)
 	mux.HandleFunc("POST "+capturePath, f.capture)
 	mux.HandleFunc("POST "+askPath, f.ask)
+	mux.HandleFunc("GET "+glancePath, f.glance)
 	mux.HandleFunc("GET /api/v1/connector/key", f.withUser(f.connectorKey))
 	mux.HandleFunc("POST /api/v1/connector/key", f.withUser(f.createConnectorKey))
 	mux.HandleFunc("DELETE /api/v1/connector/key", f.withUser(f.deleteConnectorKey))

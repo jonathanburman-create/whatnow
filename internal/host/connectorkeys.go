@@ -24,6 +24,10 @@ const capturePath = "/capture"
 // text, so a Shortcut can show it as a notification. Both land in the app's chat.
 const askPath = "/ask"
 
+// glancePath answers a GET with the same key with today at a glance, in plain text: what's done,
+// what's left, and the next event. No model is called.
+const glancePath = "/glance"
+
 // ErrNoConnectorKey means the connector key is unknown, replaced, or revoked.
 var ErrNoConnectorKey = errors.New("host: no such connector key")
 
@@ -108,7 +112,8 @@ func (f *frontDoor) connectorKey(w http.ResponseWriter, r *http.Request, u User)
 		URL        string        `json:"url"`
 		CaptureURL string        `json:"capture_url"`
 		AskURL     string        `json:"ask_url"`
-	}{k, f.origin + connectorPath, f.origin + capturePath, f.origin + askPath})
+		GlanceURL  string        `json:"glance_url"`
+	}{k, f.origin + connectorPath, f.origin + capturePath, f.origin + askPath, f.origin + glancePath})
 }
 
 func (f *frontDoor) createConnectorKey(w http.ResponseWriter, r *http.Request, u User) {
@@ -162,6 +167,18 @@ func (f *frontDoor) ask(w http.ResponseWriter, r *http.Request) {
 	}
 	fwd := r.Clone(r.Context())
 	fwd.URL.Path = "/api/v1/ask"
+	fwd.URL.RawPath = ""
+	f.registry.Serve(w, fwd, u.ID)
+}
+
+// glance hands a GET sent with the connector key to the key's user's day at a glance.
+func (f *frontDoor) glance(w http.ResponseWriter, r *http.Request) {
+	u, ok := f.keyUser(w, r)
+	if !ok {
+		return
+	}
+	fwd := r.Clone(r.Context())
+	fwd.URL.Path = "/api/v1/glance"
 	fwd.URL.RawPath = ""
 	f.registry.Serve(w, fwd, u.ID)
 }

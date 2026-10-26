@@ -191,3 +191,35 @@ func TestAskFromAShortcut(t *testing.T) {
 		t.Errorf("ask url = %q", v.AskURL)
 	}
 }
+
+func TestGlanceFromAShortcut(t *testing.T) {
+	f := newFrontTest(t)
+	_, c := f.signIn("a")
+	key := f.createConnectorKey(c)
+
+	glance := func(key string) *http.Request {
+		req := httptest.NewRequest(http.MethodGet, "/glance", nil)
+		req.Host = "whatnow.test"
+		if key != "" {
+			req.Header.Set("Authorization", "Bearer "+key)
+		}
+		return req
+	}
+	rec := f.serve(glance(key))
+	f.want(rec, http.StatusOK)
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/plain") {
+		t.Errorf("content type = %q", ct)
+	}
+	if got := rec.Body.String(); got != "Today isn't planned yet. Open the planner to start your day." {
+		t.Errorf("glance = %q", got)
+	}
+	f.want(f.serve(glance("")), http.StatusUnauthorized)
+	f.want(f.serve(glance("wnc_nope")), http.StatusUnauthorized)
+
+	v := decodeBody[struct {
+		GlanceURL string `json:"glance_url"`
+	}](t, f.do(http.MethodGet, "/api/v1/connector/key", c, nil))
+	if v.GlanceURL != publicURL+"/glance" {
+		t.Errorf("glance url = %q", v.GlanceURL)
+	}
+}
